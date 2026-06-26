@@ -1,0 +1,305 @@
+--- PAGE 1 ---
+Sri Vijaya Durga Restaurant Management System 
+DETAILS OF RESTAURANT: 
+Restuarant Owner name : Udarapu Navaneeth 
+Sri Vijayadurga Restaurant (A/C)Home delivery availableCatering is our 
+specialtyMenu includes: Biryani, Chinese, Tandoori, North Indian curries    Beside 
+TTD Kalyana Mandapam, Vijaya talkies Road, Nandigama 
+   Cell: 9966315544 
+   Phone: 9030121200 
+Project Overview 
+Build a complete Restaurant Table Booking, Ordering, Billing, and Management Web 
+Application for Sri Vijaya Durga Restaurant. 
+The system must not require Login or Registration for customers. 
+The application should be fast, modern, responsive, mobile-friendly, and suitable for 
+restaurants, cafes, food courts, and dining establishments. 
+ 
+UI / Design Requirements 
+Homepage Hero Section 
+Restaurant Name: 
+Sri Vijaya Durga Restaurant 
+Hero Background: 
+Use the best suitable restaurant-themed background consisting of: 
+• Restaurant Interior 
+• Dining Tables 
+• Food Collage 
+• Blurred Spices Pattern 
+AI should automatically choose the most professional background image. 
+Homepage Features: 
+• Hero Banner 
+• Restaurant Introduction 
+• Featured Menu Section 
+--- PAGE 2 ---
+• Table Booking CTA 
+• Contact Information 
+• Responsive Design 
+ 
+Website Pages 
+1. Home Page 
+Sections: 
+• Hero Banner 
+• About Restaurant 
+• Featured Food Items 
+• Book Table Button 
+• QR Menu Information 
+• Contact & Location 
+• Footer 
+ 
+2. Table Booking Page 
+Restaurant-themed background. 
+Features: 
+• Display all tables visually. 
+• Each table should have a unique number. 
+Examples: 
+• Table 1 
+• Table 2 
+• Table 3 
+• Table 4 
+• Table 5 
+• etc. 
+Table Status Colors 
+--- PAGE 3 ---
+  Green = Available 
+  Yellow = Ordered / Billing Pending 
+  Red = Occupied 
+Features: 
+• Cinema-seat-style table selection. 
+• Click available table. 
+• Reserve table instantly. 
+• Real-time status updates. 
+• Search tables. 
+• Filter tables. 
+When table is reserved: 
+• Status changes Green → Red. 
+• Customer proceeds to menu. 
+ 
+QR Menu System 
+Each table should have a unique QR Code. 
+Examples: 
+Table 1 QR: 
+https://restaurant-domain.com/menu?table=1 
+Table 2 QR: 
+https://restaurant-domain.com/menu?table=2 
+Table 3 QR: 
+https://restaurant-domain.com/menu?table=3 
+Requirements: 
+• Generate unique QR for every table. 
+• Support uploaded menu PDF . 
+• Open digital menu when scanned. 
+• Detect table number automatically. 
+--- PAGE 4 ---
+ 
+Digital Menu Page 
+Menu Categories: 
+Starters 
+• Image 
+• Description 
+• Price 
+Main Course 
+• Image 
+• Description 
+• Price 
+Beverages 
+• Image 
+• Description 
+• Price 
+Desserts 
+• Image 
+• Description 
+• Price 
+Special Items 
+• Image 
+• Description 
+• Price 
+Features: 
+• Add to Cart 
+• Quantity Controls 
+• Search Food 
+• Category Filters 
+--- PAGE 5 ---
+• Mobile Friendly Layout 
+ 
+Food Ordering System 
+Customers place orders directly from QR Menu. 
+Order Lifecycle: 
+Stage 1 
+Order Placed 
+Stage 2 
+Preparing / Pending 
+Stage 3 
+Completed / Ready 
+Kitchen Dashboard should allow status updates. 
+Real-time updates required. 
+ 
+Kitchen Management Dashboard 
+Features: 
+• View Incoming Orders 
+• Update Order Status 
+• Mark as Preparing 
+• Mark as Completed 
+• Filter Orders 
+Filters: 
+• Placed 
+• Preparing 
+• Completed 
+ 
+Payment Module 
+After order completion: 
+--- PAGE 6 ---
+Show Bill Summary. 
+Display QR Payment Options: 
+• UPI 
+• PhonePe 
+• Google Pay 
+• Paytm 
+Features: 
+• Dynamic Amount Calculation 
+• Tax Calculation 
+• Service Charge Calculation 
+• Payment Confirmation 
+ 
+Billing System 
+Generate Invoice Automatically. 
+Invoice Must Include: 
+• Invoice Number 
+• Table Number 
+• Ordered Items 
+• Quantity 
+• Item Price 
+• Subtotal 
+• Tax 
+• Service Charges 
+• Total Amount 
+• Payment Status 
+• Date 
+• Time 
+Features: 
+--- PAGE 7 ---
+• Download Invoice PDF 
+• Print Invoice 
+• Reprint Invoice 
+ 
+Automatic Table Release 
+After: 
+1. Payment Success 
+2. Invoice Generated 
+System automatically: 
+• Releases table. 
+• Updates status. 
+Status Change: 
+Red / Yellow → Green 
+Table becomes available again. 
+ 
+Admin Dashboard 
+Dashboard Statistics 
+Display: 
+• Total Tables 
+• Available Tables 
+• Occupied Tables 
+• Pending Tables 
+• Orders Today 
+• Revenue Today 
+• Revenue This Week 
+• Revenue This Month 
+ 
+Order Monitoring 
+--- PAGE 8 ---
+Live Orders View 
+Filters: 
+• Order Placed 
+• Preparing 
+• Completed 
+ 
+Table Monitoring 
+Real-Time Table Tracking 
+Color Indicators: 
+  Available 
+  Pending 
+  Occupied 
+ 
+Reports & Analytics 
+Generate: 
+• Daily Sales Report 
+• Weekly Sales Report 
+• Monthly Sales Report 
+• Top Selling Items 
+• Revenue Charts 
+• Table Utilization Report 
+Export: 
+• PDF 
+• Excel 
+ 
+Additional Features 
+• Responsive Design 
+• Mobile Friendly 
+--- PAGE 9 ---
+• Tablet Friendly 
+• Desktop Friendly 
+• PWA Support 
+• Install as Mobile App 
+• Offline Support 
+• Real-Time Updates 
+• QR-Based Ordering 
+• Fast Billing 
+• Search & Filters 
+• Order History 
+• Printable Invoices 
+• Dark Mode 
+• Modern Restaurant UI 
+• Smooth Animations 
+• Toast Notifications 
+ 
+Recommended Tech Stack 
+Frontend: 
+• Next.js 15 
+• React 19 
+• TypeScript 
+• Tailwind CSS 
+• ShadCN UI 
+Backend: 
+• Node.js 
+• Express.js 
+• REST APIs 
+Database: 
+--- PAGE 10 ---
+• PostgreSQL 
+• Neon Database 
+Real-Time: 
+• Socket.IO 
+QR Generation: 
+• QRCode Library 
+Authentication: 
+• No Customer Login Required 
+Deployment: 
+• Vercel (Frontend) 
+• Render / Railway (Backend) 
+ 
+User Flow 
+Home Page 
+↓ 
+Table Selection 
+↓ 
+Table Reserved 
+↓ 
+QR Menu Scan 
+↓ 
+Food Ordering 
+↓ 
+Order Placed 
+↓ 
+Preparing 
+↓ 
+Completed 
+--- PAGE 11 ---
+↓ 
+Payment QR 
+↓ 
+Invoice Generated 
+↓ 
+Table Released 
+↓ 
+Available For Next Customer 
+Build this as a production-ready restaurant management platform with a modern UI, 
+real-time functionality, QR ordering, billing automation, reporting dashboard, and PWA 
+support. 
+ 

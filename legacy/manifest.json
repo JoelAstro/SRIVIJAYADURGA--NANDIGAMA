@@ -1,0 +1,22 @@
+{
+  "name": "Sri Vijaya Durga Restaurant Management System",
+  "short_name": "Vijaya Durga",
+  "description": "Complete Table Booking, Ordering, Billing, and Management App for Sri Vijaya Durga Restaurant",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "background_color": "#0f0f10",
+  "theme_color": "#d97706",
+  "orientation": "any",
+  "icons": [
+    {
+      "src": "https://images.unsplash.com/photo-1555396273-367ea4eb4db5?auto=format&fit=crop&q=80&w=192&h=192",
+      "sizes": "192x192",
+      "type": "image/jpeg"
+    },
+    {
+      "src": "https://images.unsplash.com/photo-1555396273-367ea4eb4db5?auto=format&fit=crop&q=80&w=512&h=512",
+      "sizes": "512x512",
+      "type": "image/jpeg"
+    }
+  ]
+}

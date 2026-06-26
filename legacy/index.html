@@ -1,0 +1,646 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Sri Vijaya Durga Restaurant Management System</title>
+  
+  <!-- PWA Metadata -->
+  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#d97706">
+  <link rel="icon" type="image/jpeg" href="https://images.unsplash.com/photo-1555396273-367ea4eb4db5?auto=format&fit=crop&q=80&w=192&h=192">
+  
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  
+  <!-- Stylesheet -->
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+  <!-- App Shell Header -->
+  <header class="app-header no-print">
+    <div class="header-container">
+      <div class="logo-area" onclick="window.location.hash = '#home'">
+        <span class="logo-icon">🔥</span>
+        <div>
+          <h1>Sri Vijaya Durga</h1>
+          <p class="subtitle">(A/C) Restaurant</p>
+        </div>
+      </div>
+      
+      <!-- Testing Portal Switcher (Highly interactive and helpful) -->
+      <nav class="portal-switcher">
+        <button class="portal-btn active" id="btn-portal-customer" onclick="app.switchPortal('customer')">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
+          Customer
+        </button>
+        <button class="portal-btn" id="btn-portal-kitchen" onclick="app.switchPortal('kitchen')">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path></svg>
+          Kitchen Dashboard <span class="badge badge-red" id="kitchen-pending-badge" style="display:none">0</span>
+        </button>
+        <button class="portal-btn" id="btn-portal-admin" onclick="app.switchPortal('admin')">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="9"></rect><rect x="14" y="3" width="7" height="5"></rect><rect x="14" y="12" width="7" height="9"></rect><rect x="3" y="16" width="7" height="5"></rect></svg>
+          Admin Portal
+        </button>
+      </nav>
+      
+      <div class="header-controls">
+        <button class="theme-toggle" id="theme-toggle-btn" aria-label="Toggle Dark Mode" onclick="app.toggleTheme()">
+          <!-- Sun Icon -->
+          <svg class="sun-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="5"></circle><line x1="12" y1="1" x2="12" y2="3"></line><line x1="12" y1="21" x2="12" y2="23"></line><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line><line x1="1" y1="12" x2="3" y2="12"></line><line x1="21" y1="12" x2="23" y2="12"></line><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line></svg>
+          <!-- Moon Icon -->
+          <svg class="moon-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="display:none"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path></svg>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- Notification Banner (Breadcrumbs / Table indicator) -->
+  <div class="table-bar no-print" id="table-status-bar" style="display:none">
+    <div class="table-bar-container">
+      <span class="table-badge">Table <span id="current-table-number">0</span> Reserved</span>
+      <div class="table-bar-actions">
+        <a href="#menu" class="bar-link">📖 View Menu</a>
+        <button class="btn btn-outline btn-xs" onclick="app.releaseCurrentTable()">Release Table</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Main View Container -->
+  <main class="main-content" id="app-view-container">
+
+    <!-- ==================== VIEW: HOME ==================== -->
+    <section id="view-home" class="app-view active">
+      <!-- Hero Banner -->
+      <div class="hero-section">
+        <div class="hero-overlay"></div>
+        <div class="hero-content">
+          <span class="hero-tag animate-fade-in">Premium Dining (A/C)</span>
+          <h2 class="animate-slide-up">Taste the Tradition, Feel the Comfort</h2>
+          <p class="animate-slide-up delay-1">Indulge in our specialties including signature Biryanis, sizzling Tandoori items, rich Chinese, and authentic North Indian curries.</p>
+          <div class="hero-ctas animate-slide-up delay-2">
+            <button class="btn btn-primary btn-lg" onclick="window.location.hash = '#booking'">
+              <span>Book dining table</span>
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="5" y1="12" x2="19" y2="12"></line><polyline points="12 5 19 12 12 19"></polyline></svg>
+            </button>
+            <a href="#menu" class="btn btn-secondary btn-lg">
+              <span>View digital menu</span>
+            </a>
+          </div>
+        </div>
+      </div>
+
+      <!-- About Section -->
+      <div class="container section">
+        <div class="grid grid-2">
+          <div class="about-text">
+            <h3 class="section-title">Catering is our specialty</h3>
+            <p>Welcome to <strong>Sri Vijaya Durga Restaurant</strong>. We take pride in delivering exquisite culinary experiences crafted by our master chefs. Whether you are dining in our fully air-conditioned hall, ordering home delivery, or planning an event with our catering services, we ensure the highest standards of taste and hygiene.</p>
+            <div class="features-list">
+              <div class="feat-item">
+                <span class="feat-icon">❄️</span>
+                <div>
+                  <h4>Fully Air Conditioned</h4>
+                  <p>Dine in luxury and cool comfort.</p>
+                </div>
+              </div>
+              <div class="feat-item">
+                <span class="feat-icon">🛵</span>
+                <div>
+                  <h4>Home Delivery Available</h4>
+                  <p>Get piping hot food delivered to your door.</p>
+                </div>
+              </div>
+              <div class="feat-item">
+                <span class="feat-icon">👨‍🍳</span>
+                <div>
+                  <h4>Premium Catering</h4>
+                  <p>Special menus for marriages & events.</p>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="about-image-card">
+            <div class="image-overlay"></div>
+            <img src="https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?auto=format&fit=crop&q=80&w=800" alt="Restaurant Interior" class="about-img">
+            <div class="owner-badge">
+              <span class="badge-title">Owner</span>
+              <span class="badge-name">Udarapu Navaneeth</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Featured Menu Image Section -->
+      <div class="container section">
+        <h3 class="section-title text-center">Our Featured Menu Card</h3>
+        <p class="section-subtitle text-center mx-auto">Browse our delicious offerings. Scan the table QR code to place orders instantly from your phone!</p>
+        <div class="menu-image-card text-center" style="max-width: 600px; margin: 0 auto; border: 1px solid var(--border-color); border-radius: var(--radius); overflow: hidden; box-shadow: var(--shadow-lg);">
+          <img src="menu_card.jpg" alt="Sri Vijaya Durga Menu Card" style="width: 100%; height: auto; display: block;">
+        </div>
+      </div>
+
+      <!-- Featured Foods -->
+      <div class="bg-surface section">
+        <div class="container">
+          <h3 class="section-title text-center">Chef's Signature Dishes</h3>
+          <p class="section-subtitle text-center">Handpicked favorites that represent our culinary excellence</p>
+          <div class="grid grid-3" id="featured-dishes-grid">
+            <!-- Dynamically populated -->
+          </div>
+        </div>
+      </div>
+
+      <!-- Contact & Location -->
+      <div class="container section">
+        <div class="contact-card">
+          <div class="grid grid-2">
+            <div class="contact-info">
+              <h3>Visit or Contact Us</h3>
+              <p class="mb-6">Experience unmatched hospitality at Sri Vijaya Durga. For catering reservations or bulk orders, reach out directly.</p>
+              
+              <div class="contact-detail">
+                <span class="detail-icon">📍</span>
+                <div>
+                  <h4>Address</h4>
+                  <p>Beside TTD Kalyana Mandapam,<br>Vijaya talkies Road, Nandigama</p>
+                </div>
+              </div>
+              
+              <div class="contact-detail">
+                <span class="detail-icon">📞</span>
+                <div>
+                  <h4>Phone Numbers</h4>
+                  <p><a href="tel:9966315544">Cell: 9966315544</a><br><a href="tel:9030121200">Phone: 9030121200</a></p>
+                </div>
+              </div>
+            </div>
+            <div class="contact-map-mock">
+              <div class="map-overlay">
+                <div class="map-marker">
+                  <span class="marker-dot"></span>
+                  <div class="marker-card">
+                    <h5>Sri Vijaya Durga</h5>
+                    <p>Beside TTD Kalyana Mandapam</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ==================== VIEW: TABLE BOOKING ==================== -->
+    <section id="view-booking" class="app-view">
+      <div class="container py-8">
+        <div class="view-header">
+          <div>
+            <h2 class="view-title">Table Reservation</h2>
+            <p class="view-subtitle">Select an available table to begin dining. No registration required.</p>
+          </div>
+          
+          <div class="booking-filters">
+            <div class="search-input-wrapper">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+              <input type="text" id="search-tables-input" placeholder="Search tables (e.g. Table 3)..." oninput="app.filterTables()">
+            </div>
+            <select id="filter-tables-select" class="form-select" onchange="app.filterTables()">
+              <option value="all">All Tables</option>
+              <option value="available">Available (Green)</option>
+              <option value="pending">Pending/Ordered (Yellow)</option>
+              <option value="occupied">Occupied (Red)</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Legend -->
+        <div class="status-legend">
+          <div class="legend-item"><span class="dot dot-green"></span> Available</div>
+          <div class="legend-item"><span class="dot dot-yellow"></span> Ordered / Billing Pending</div>
+          <div class="legend-item"><span class="dot dot-red"></span> Occupied</div>
+        </div>
+
+        <!-- Table Grid (Cinema-seat Style) -->
+        <div class="table-booking-container">
+          <div class="hall-indicator">Dining Hall Center (A/C)</div>
+          <div class="cinema-table-grid" id="tables-selection-grid">
+            <!-- Dynamically populated -->
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ==================== VIEW: DIGITAL MENU ==================== -->
+    <section id="view-menu" class="app-view">
+      <div class="container py-8">
+        
+        <div class="menu-layout">
+          <!-- Main Menu Section -->
+          <div class="menu-main">
+            <div class="view-header">
+              <div>
+                <h2 class="view-title">Digital QR Menu <span class="table-indicator-badge" id="menu-table-badge">Table 0</span></h2>
+                <p class="view-subtitle">Explore dishes and add them directly to your order card.</p>
+              </div>
+              <div class="search-input-wrapper">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+                <input type="text" id="search-food-input" placeholder="Search food items..." oninput="app.renderMenu()">
+              </div>
+            </div>
+
+            <!-- Categories Scroller -->
+            <div class="categories-tabs" id="menu-category-tabs">
+              <!-- Dynamically populated -->
+            </div>
+
+            <!-- Food Grid -->
+            <div class="food-grid" id="menu-food-grid">
+              <!-- Dynamically populated -->
+            </div>
+          </div>
+
+          <!-- Checkout Cart Sidebar -->
+          <aside class="menu-sidebar">
+            <div class="cart-card">
+              <div class="cart-header">
+                <h3>Order Details</h3>
+                <span class="table-id-tag" id="cart-table-badge">Table 0</span>
+              </div>
+              
+              <div class="cart-items" id="cart-items-container">
+                <!-- Cart list will appear here -->
+              </div>
+              
+              <div class="cart-totals">
+                <div class="totals-row">
+                  <span>Subtotal</span>
+                  <span id="cart-subtotal">₹0.00</span>
+                </div>
+                <div class="totals-row">
+                  <span>GST (5%)</span>
+                  <span id="cart-tax">₹0.00</span>
+                </div>
+                <div class="totals-row">
+                  <span>Service Charge (2.5%)</span>
+                  <span id="cart-service">₹0.00</span>
+                </div>
+                <div class="totals-row total-grand">
+                  <span>Grand Total</span>
+                  <span id="cart-grand-total">₹0.00</span>
+                </div>
+              </div>
+
+              <!-- Customer Details -->
+              <div id="checkout-customer-info-area" style="margin-top: 1rem; border-top: 1px solid var(--border-color); padding-top: 1rem;" class="no-print">
+                <!-- Dynamically populated by JS -->
+              </div>
+
+              <!-- Cart actions -->
+              <div class="cart-actions">
+                <button class="btn btn-primary btn-block" id="btn-place-order" onclick="app.placeOrder()">
+                  Place Order
+                </button>
+                <div class="order-status-card" id="cart-order-status" style="display:none">
+                  <div class="status-indicator">
+                    <span class="pulse-dot"></span>
+                    <span id="order-status-text">Order Status: Placed</span>
+                  </div>
+                  <button class="btn btn-secondary btn-block btn-sm mt-3" id="btn-pay-bill-trigger" onclick="app.goToPayment()" style="display:none">
+                    Proceed to Payment / Bill Summary
+                  </button>
+                </div>
+              </div>
+            </div>
+          </aside>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- ==================== VIEW: PAYMENT GATEWAY ==================== -->
+    <section id="view-payment" class="app-view">
+      <div class="container py-8 max-w-md">
+        <div class="payment-card glass-panel">
+          <h2 class="text-center mb-2">Sri Vijaya Durga Bill Summary</h2>
+          <p class="text-center text-muted mb-6">Table Number: <strong id="payment-table-no">0</strong> | Order ID: <span id="payment-order-id">---</span></p>
+
+          <div class="bill-breakdown mb-6">
+            <h4 class="mb-3">Itemized Receipt</h4>
+            <div id="payment-items-list" class="receipt-list mb-4">
+              <!-- Dynamically populated -->
+            </div>
+            
+            <div class="receipt-totals">
+              <div class="totals-row"><span>Subtotal:</span><span id="payment-subtotal">₹0.00</span></div>
+              <div class="totals-row"><span>GST (5%):</span><span id="payment-tax">₹0.00</span></div>
+              <div class="totals-row"><span>Service Charge (2.5%):</span><span id="payment-service">₹0.00</span></div>
+              <div class="totals-row total-grand"><span>Grand Total:</span><span id="payment-total">₹0.00</span></div>
+            </div>
+          </div>
+
+          <div class="qr-payment-area text-center mb-6">
+            <h4>Select UPI QR Payment Option</h4>
+            <p class="text-muted text-sm mb-4">Scan using any UPI App to Pay</p>
+            
+            <div class="payment-apps-row">
+              <button class="pay-app-btn active" onclick="app.setPaymentProvider('upi')">UPI</button>
+              <button class="pay-app-btn" onclick="app.setPaymentProvider('phonepe')">PhonePe</button>
+              <button class="pay-app-btn" onclick="app.setPaymentProvider('gpay')">Google Pay</button>
+              <button class="pay-app-btn" onclick="app.setPaymentProvider('paytm')">Paytm</button>
+            </div>
+
+            <!-- Dynamic QR Code -->
+            <div class="qr-box-wrapper mx-auto my-4">
+              <div id="payment-qr-graphic">
+                <!-- SVG QR generated here -->
+              </div>
+            </div>
+            
+            <span class="upi-id">Merchant ID: <strong>9966315544@upi</strong></span>
+          </div>
+
+          <button class="btn btn-primary btn-block btn-lg" onclick="app.confirmPayment()">
+            Confirm Payment (Simulate Success)
+          </button>
+        </div>
+      </div>
+    </section>
+
+    <!-- ==================== VIEW: INVOICE PRINT ==================== -->
+    <section id="view-invoice" class="app-view">
+      <div class="container py-8 max-w-md no-margin-print">
+        <div class="invoice-box" id="invoice-printable-area">
+          <div class="invoice-header text-center">
+            <h2>SRI VIJAYA DURGA RESTAURANT</h2>
+            <p>(A/C) & Catering Services</p>
+            <p>Beside TTD Kalyana Mandapam, Nandigama</p>
+            <p>Cell: 9966315544 | Phone: 9030121200</p>
+            <div class="divider"></div>
+            <h3>INVOICE / RECEIPT</h3>
+            <div class="divider"></div>
+          </div>
+
+          <div class="invoice-meta">
+            <p><strong>Invoice No:</strong> <span id="inv-number">---</span></p>
+            <p><strong>Date/Time:</strong> <span id="inv-date">---</span></p>
+            <p><strong>Table Number:</strong> <span id="inv-table-no">0</span></p>
+            <p><strong>Payment Status:</strong> <span class="badge badge-green">PAID</span></p>
+          </div>
+
+          <div class="divider"></div>
+
+          <table class="invoice-table">
+            <thead>
+              <tr>
+                <th>Item Description</th>
+                <th class="text-center">Qty</th>
+                <th class="text-right">Price</th>
+                <th class="text-right">Total</th>
+              </tr>
+            </thead>
+            <tbody id="inv-items-body">
+              <!-- Dynamically populated -->
+            </tbody>
+          </table>
+
+          <div class="divider"></div>
+
+          <div class="invoice-totals">
+            <p><span>Subtotal:</span><span id="inv-subtotal">₹0.00</span></p>
+            <p><span>CGST (2.5%):</span><span id="inv-cgst">₹0.00</span></p>
+            <p><span>SGST (2.5%):</span><span id="inv-sgst">₹0.00</span></p>
+            <p><span>Service Charges (2.5%):</span><span id="inv-service">₹0.00</span></p>
+            <div class="divider-dashed"></div>
+            <p class="grand-total"><span>Grand Total:</span><span id="inv-total">₹0.00</span></p>
+          </div>
+
+          <div class="divider"></div>
+          <div class="invoice-footer text-center">
+            <p>Thank You! Visit Us Again.</p>
+            <p class="text-xs">Udarapu Navaneeth | Sri Vijaya Durga</p>
+          </div>
+        </div>
+
+        <div class="invoice-actions no-print mt-6">
+          <button class="btn btn-primary" onclick="window.print()">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 6 2 18 2 18 9"></polyline><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path><rect x="6" y="14" width="12" height="8"></rect></svg>
+            Print Invoice
+          </button>
+          <button class="btn btn-outline" onclick="app.downloadInvoicePDF()">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+            Download PDF
+          </button>
+          <button class="btn btn-secondary" onclick="window.location.hash = '#home'">
+            Return Home
+          </button>
+        </div>
+      </div>
+    </section>
+
+    <!-- ==================== VIEW: KITCHEN DASHBOARD ==================== -->
+    <section id="view-kitchen" class="app-view">
+      <div id="kitchen-login-wrapper" class="auth-wrapper" style="display: none; width: 100%;"></div>
+      <div id="kitchen-content-wrapper" class="portal-content-wrapper" style="display: block; width: 100%;">
+        <div class="container py-8">
+          <div class="view-header" style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 1rem; width: 100%;">
+            <div>
+              <h2 class="view-title">Kitchen Live Order Board</h2>
+              <p class="view-subtitle">Monitor and update cooking stages for customer tables.</p>
+            </div>
+            <button class="btn btn-outline btn-sm no-print" style="margin-left: auto;" onclick="app.handleLogout('kitchen')">🔒 Logout</button>
+          </div>
+            
+          <div class="kitchen-filters">
+            <button class="filter-chip active" onclick="app.filterKitchenOrders('all')">All Orders</button>
+            <button class="filter-chip" onclick="app.filterKitchenOrders('placed')">Placed</button>
+            <button class="filter-chip" onclick="app.filterKitchenOrders('preparing')">Preparing</button>
+            <button class="filter-chip" onclick="app.filterKitchenOrders('completed')">Completed</button>
+          </div>
+
+          <div class="kitchen-orders-grid" id="kitchen-orders-container">
+            <!-- Dynamic order tickets will go here -->
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ==================== VIEW: ADMIN DASHBOARD ==================== -->
+    <section id="view-admin" class="app-view">
+      <div id="admin-login-wrapper" class="auth-wrapper" style="display: none; width: 100%;"></div>
+      <div id="admin-content-wrapper" class="portal-content-wrapper" style="display: block; width: 100%;">
+        <div class="container py-8">
+          
+          <div class="view-header" style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 1rem; width: 100%;">
+            <div>
+              <h2 class="view-title">Admin Management Suite</h2>
+              <p class="view-subtitle">Live analytics, occupancy rates, financial reporting, and configurations.</p>
+            </div>
+            <button class="btn btn-outline btn-sm no-print" style="margin-left: auto;" onclick="app.handleLogout('admin')">🔒 Logout</button>
+          </div>
+
+          <!-- Metric Cards Grid -->
+          <div class="grid grid-4 mb-8">
+            <div class="stat-card">
+              <span class="stat-icon">🪑</span>
+              <div>
+                <h3>Total / Available</h3>
+                <p id="stat-tables-count">12 / 12 Available</p>
+              </div>
+            </div>
+            <div class="stat-card">
+              <span class="stat-icon">📈</span>
+              <div>
+                <h3>Orders Today</h3>
+                <p id="stat-orders-today">0 Orders</p>
+              </div>
+            </div>
+            <div class="stat-card">
+              <span class="stat-icon">💰</span>
+              <div>
+                <h3>Revenue Today</h3>
+                <p id="stat-revenue-today">₹0.00</p>
+              </div>
+            </div>
+            <div class="stat-card">
+              <span class="stat-icon">🗓️</span>
+              <div>
+                <h3>Revenue This Month</h3>
+                <p id="stat-revenue-month">₹0.00</p>
+              </div>
+            </div>
+          </div>
+
+          <!-- Dashboard Layout -->
+          <div class="admin-layout">
+            <!-- Left: Table Monitoring and Reports -->
+            <div class="admin-main">
+              <!-- Table Occupancy Grid -->
+              <div class="admin-block mb-8">
+                <h3 class="block-title">Real-Time Table Monitoring</h3>
+                <div class="legend-compact mb-4">
+                  <span class="badge badge-green">Available</span>
+                  <span class="badge badge-yellow">Ordered / Pending</span>
+                  <span class="badge badge-red">Occupied</span>
+                </div>
+                <div class="compact-table-grid" id="admin-table-tracker">
+                  <!-- Dynamically populated tables indicators -->
+                </div>
+              </div>
+
+              <!-- SVG Charts & Analytics -->
+              <div class="admin-block mb-8">
+                <h3 class="block-title">Revenue Trends & Daily Sales</h3>
+                <div class="chart-container" id="admin-svg-chart">
+                  <!-- Interactive SVG bar chart generated by JS -->
+                </div>
+              </div>
+
+              <!-- Reports Section -->
+              <div class="admin-block">
+                <div class="block-header flex-between mb-4">
+                  <h3 class="block-title">Sales Reports & Data Export</h3>
+                  <div class="report-actions">
+                    <select id="report-type-select" class="form-select inline-select" onchange="app.generateSalesReport()">
+                      <option value="daily">Daily Report</option>
+                      <option value="weekly">Weekly Report</option>
+                      <option value="monthly">Monthly Report</option>
+                    </select>
+                    <button class="btn btn-outline btn-sm" onclick="app.exportReportCSV()">
+                      Export Excel / CSV
+                    </button>
+                  </div>
+                </div>
+
+                <div class="table-responsive">
+                  <table class="data-table">
+                    <thead>
+                      <tr>
+                        <th>Invoice No</th>
+                        <th>Date</th>
+                        <th>Table</th>
+                        <th>Subtotal</th>
+                        <th>Tax</th>
+                        <th>Service Chg</th>
+                        <th>Total Amt</th>
+                      </tr>
+                    </thead>
+                    <tbody id="admin-report-table-body">
+                      <!-- Report items will render here -->
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+
+            <!-- Right: Table QR Code Generator -->
+            <aside class="admin-sidebar">
+              <div class="admin-block">
+                <h3 class="block-title">QR Code Manager</h3>
+                <p class="text-sm text-muted mb-4">Select a table number to preview or print its specific QR ordering code.</p>
+                
+                <div class="mb-4">
+                  <label for="admin-qr-table-select" class="form-label">Table Number</label>
+                  <select id="admin-qr-table-select" class="form-select" onchange="app.renderAdminQR()">
+                    <!-- Dynamically populated -->
+                  </select>
+                </div>
+
+                <div class="qr-display-box border-dashed rounded p-4 text-center mb-4 bg-surface-alt">
+                  <div id="admin-qr-preview-graphic" class="mx-auto mb-3">
+                    <!-- SVG QR preview generated here -->
+                  </div>
+                  <h4 class="mb-1" id="admin-qr-preview-title">Table 1 Menu QR</h4>
+                  <code class="text-xs text-muted" id="admin-qr-preview-link">https://restaurant-domain.com/menu?table=1</code>
+                </div>
+
+                <button class="btn btn-primary btn-block" onclick="app.printSelectedQR()">
+                  Print Table QR Code
+                </button>
+              </div>
+            </aside>
+          </div>
+
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- Global Footer -->
+  <footer class="app-footer no-print">
+    <div class="container footer-grid">
+      <div>
+        <h3>Sri Vijaya Durga</h3>
+        <p>Providing the finest (A/C) dining, home delivery, and custom catering services beside TTD Kalyana Mandapam, Nandigama.</p>
+        <p class="mt-4 text-sm text-muted">&copy; 2026 Sri Vijaya Durga Restaurant. All Rights Reserved.</p>
+      </div>
+      <div>
+        <h4>Specials</h4>
+        <ul>
+          <li>Special Handi Biryani</li>
+          <li>Chinese Hakka Noodles</li>
+          <li>Clay Oven Tandoori Chicken</li>
+          <li>North Indian Rich Curries</li>
+        </ul>
+      </div>
+      <div>
+        <h4>Contact & Hours</h4>
+        <p><strong>Owner:</strong> Udarapu Navaneeth</p>
+        <p><strong>Call:</strong> 9966315544</p>
+        <p><strong>Phone:</strong> 9030121200</p>
+        <p class="mt-3 text-sm text-muted">Open Daily: 11:00 AM - 11:00 PM</p>
+      </div>
+    </div>
+  </footer>
+
+  <!-- Toast Notification Container -->
+  <div class="toast-container" id="toast-messages-container"></div>
+
+  <!-- App Script -->
+  <script src="app.js"></script>
+</body>
+</html>
