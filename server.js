@@ -111,8 +111,8 @@ app.post('/api/orders', async (req, res) => {
     res.status(201).json({ message: 'Order created', order: newOrder });
 
   } catch (err) {
-    console.error('[Error] POST /api/orders:', err);
-    res.status(500).json({ error: 'Internal server error' });
+    console.error('[Error] POST /api/orders failed database execution:', err);
+    res.status(500).json({ error: 'Database execution failed: ' + err.message });
   }
 });
 

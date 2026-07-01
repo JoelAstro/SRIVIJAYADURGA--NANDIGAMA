@@ -46,7 +46,14 @@ const ParcelSection: React.FC = () => {
   const [specialNotes, setSpecialNotes] = useState('');
   const [paymentMethod, setPaymentMethod] = useState<'UPI' | 'Cash' | 'Card'>('UPI');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  
+  // Error & Status States
   const [errorMsg, setErrorMsg] = useState('');
+  const [nameError, setNameError] = useState('');
+  const [phoneError, setPhoneError] = useState('');
+  const [quantityError, setQuantityError] = useState('');
+  const [successToast, setSuccessToast] = useState<string | null>(null);
+  
   const [successOrderId, setSuccessOrderId] = useState<string | null>(null);
   const [trackingOrderId, setTrackingOrderId] = useState<string | null>(() => 
     localStorage.getItem('svd_active_takeaway_order_id')
@@ -55,9 +62,6 @@ const ParcelSection: React.FC = () => {
   // Sync state with localStorage if active order is completed
   const trackedOrder = orders.find(o => o.id === trackingOrderId);
 
-  // If order status changes to PICKED_UP or COMPLETED, we can show completed tracking card but don't clear instantly
-  // Let the user clear it manually.
-
   // Filter items
   const filteredParcels = parcelItems.filter(item => {
     return selectedPack === 'ALL' || item.category === selectedPack;
@@ -65,17 +69,39 @@ const ParcelSection: React.FC = () => {
 
   const handleSubmitOrder = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    // Clear validation states
+    setNameError('');
+    setPhoneError('');
+    setQuantityError('');
+    setErrorMsg('');
+
+    let hasValidationError = false;
+
     if (!customerName.trim()) {
-      setErrorMsg('Customer name is required.');
-      return;
+      setNameError('Customer name is required.');
+      hasValidationError = true;
     }
     if (!/^[0-9]{10}$/.test(customerPhone.trim())) {
-      setErrorMsg('Please enter a valid 10-digit mobile number.');
+      setPhoneError('Mobile number must be exactly 10 digits.');
+      hasValidationError = true;
+    }
+    if (quantity < 1) {
+      setQuantityError('Quantity must be at least 1.');
+      hasValidationError = true;
+    }
+    if (!paymentMethod) {
+      setErrorMsg('Payment mode must be selected.');
+      hasValidationError = true;
+    }
+
+    if (hasValidationError) {
+      console.warn('[Takeaway Modal Submit] Validation failed');
       return;
     }
 
     setIsSubmitting(true);
-    setErrorMsg('');
+    console.log('[Takeaway Modal Submit] Validation passed. Submitting order...');
 
     try {
       const orderId = await placeParcelOrder(
@@ -88,20 +114,34 @@ const ParcelSection: React.FC = () => {
       );
 
       if (orderId) {
+        console.log('[Takeaway Modal Submit] Order placed successfully:', orderId);
         setSuccessOrderId(orderId);
         setTrackingOrderId(orderId);
         localStorage.setItem('svd_active_takeaway_order_id', orderId);
-        // Clear modal form fields
+        
+        // Show success toast
+        setSuccessToast(`✓ Takeaway Order ${orderId} successfully placed and sent to kitchen!`);
+        setTimeout(() => setSuccessToast(null), 5000);
+
+        // Clear form states
         setCustomerName('');
         setCustomerPhone('');
         setQuantity(1);
         setSpecialNotes('');
+        setNameError('');
+        setPhoneError('');
+        setQuantityError('');
+
+        // Close the modal popup
+        setSelectedItem(null);
       } else {
-        setErrorMsg('Failed to place order. Please try again.');
+        setErrorMsg('Unable to send order to kitchen. Please try again.');
       }
-    } catch (err) {
-      console.error(err);
-      setErrorMsg('An unexpected error occurred.');
+    } catch (err: any) {
+      console.error('[Takeaway Modal Submit] API execution failed:', err);
+      // Show exact backend error if available, otherwise fallback to generic message
+      const exactError = err.message || 'Unable to send order to kitchen. Please try again.';
+      setErrorMsg(exactError);
     } finally {
       setIsSubmitting(false);
     }
@@ -156,6 +196,20 @@ const ParcelSection: React.FC = () => {
 
   return (
     <div className="w-full space-y-8 relative">
+      
+      {/* Toast Notification */}
+      {successToast && (
+        <div className="fixed top-5 left-1/2 -translate-x-1/2 z-[100] bg-emerald-600 text-white font-logo font-bold text-xs px-5 py-3 rounded-2xl shadow-xl flex items-center gap-2 animate-bounce border border-emerald-500">
+          <span>{successToast}</span>
+          <button 
+            type="button" 
+            onClick={() => setSuccessToast(null)} 
+            className="bg-transparent border-none text-white hover:text-neutral-100 cursor-pointer font-bold ml-2"
+          >
+            ✕
+          </button>
+        </div>
+      )}
       
       {/* Live Order Tracker */}
       {trackingOrderId && (
@@ -411,6 +465,9 @@ const ParcelSection: React.FC = () => {
                         setSpecialNotes('');
                         setPaymentMethod('UPI');
                         setErrorMsg('');
+                        setNameError('');
+                        setPhoneError('');
+                        setQuantityError('');
                         setSuccessOrderId(null);
                       }}
                       className="flex items-center gap-1 px-4 py-2 bg-maroon dark:bg-saffron text-white dark:text-maroon font-logo font-bold text-xs rounded-xl shadow-sm hover:scale-103 hover:shadow-md active:scale-97 transition-all text-center border-none cursor-pointer"
@@ -517,10 +574,19 @@ const ParcelSection: React.FC = () => {
                       type="text" 
                       required
                       value={customerName}
-                      onChange={e => setCustomerName(e.target.value)}
+                      onChange={e => {
+                        const val = e.target.value;
+                        setCustomerName(val);
+                        if (val.trim()) setNameError('');
+                      }}
                       placeholder="Enter customer name"
                       className="w-full px-3 py-2.5 text-xs rounded-xl bg-neutral-50 dark:bg-neutral-850 border border-neutral-200 dark:border-neutral-800 text-neutral-800 dark:text-neutral-100 focus:outline-none focus:border-maroon dark:focus:border-saffron"
                     />
+                    {nameError && (
+                      <p className="text-[10px] text-red-500 font-bold mt-0.5 ml-1 animate-pulse">
+                        ⚠️ {nameError}
+                      </p>
+                    )}
                   </div>
 
                   <div className="space-y-1">
@@ -530,10 +596,19 @@ const ParcelSection: React.FC = () => {
                       required
                       maxLength={10}
                       value={customerPhone}
-                      onChange={e => setCustomerPhone(e.target.value.replace(/[^0-9]/g, ''))}
+                      onChange={e => {
+                        const val = e.target.value.replace(/[^0-9]/g, '');
+                        setCustomerPhone(val);
+                        if (val.length === 10) setPhoneError('');
+                      }}
                       placeholder="10-digit mobile number"
                       className="w-full px-3 py-2.5 text-xs rounded-xl bg-neutral-50 dark:bg-neutral-850 border border-neutral-200 dark:border-neutral-800 text-neutral-800 dark:text-neutral-100 focus:outline-none focus:border-maroon dark:focus:border-saffron"
                     />
+                    {phoneError && (
+                      <p className="text-[10px] text-red-500 font-bold mt-0.5 ml-1 animate-pulse">
+                        ⚠️ {phoneError}
+                      </p>
+                    )}
                   </div>
 
                   <div className="grid grid-cols-2 gap-4">
@@ -543,7 +618,11 @@ const ParcelSection: React.FC = () => {
                       <div className="flex items-center justify-between border border-neutral-200 dark:border-neutral-800 rounded-xl bg-neutral-50 dark:bg-neutral-850 h-[38px] px-1">
                         <button 
                           type="button"
-                          onClick={() => setQuantity(prev => Math.max(1, prev - 1))}
+                          onClick={() => {
+                            const val = Math.max(1, quantity - 1);
+                            setQuantity(val);
+                            if (val >= 1) setQuantityError('');
+                          }}
                           className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-neutral-200/50 dark:hover:bg-neutral-800 text-sm font-bold bg-transparent border-none cursor-pointer text-neutral-600 dark:text-neutral-400"
                         >
                           -
@@ -553,12 +632,21 @@ const ParcelSection: React.FC = () => {
                         </span>
                         <button 
                           type="button"
-                          onClick={() => setQuantity(prev => prev + 1)}
+                          onClick={() => {
+                            const val = quantity + 1;
+                            setQuantity(val);
+                            if (val >= 1) setQuantityError('');
+                          }}
                           className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-neutral-200/50 dark:hover:bg-neutral-800 text-sm font-bold bg-transparent border-none cursor-pointer text-neutral-600 dark:text-neutral-400"
                         >
                           +
                         </button>
                       </div>
+                      {quantityError && (
+                        <p className="text-[10px] text-red-500 font-bold mt-0.5 ml-1">
+                          ⚠️ {quantityError}
+                        </p>
+                      )}
                     </div>
 
                     {/* Payment Mode */}

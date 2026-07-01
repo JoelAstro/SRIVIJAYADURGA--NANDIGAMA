@@ -975,20 +975,35 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       paymentMethod
     };
 
+    console.log('[placeParcelOrder] Attempting to place order:', newOrder);
+
     try {
       const response = await fetch(`${API_URL}/api/orders`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(newOrder)
       });
-      if (!response.ok) throw new Error('Failed to create order');
+      
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('[placeParcelOrder] Server response error:', response.status, errorText);
+        let serverErrorMsg = 'Failed to create order on server';
+        try {
+          const parsed = JSON.parse(errorText);
+          serverErrorMsg = parsed.error || parsed.message || serverErrorMsg;
+        } catch (e) {}
+        throw new Error(serverErrorMsg);
+      }
+      
+      const savedOrder = await response.json();
+      console.log('[placeParcelOrder] Order created successfully:', savedOrder);
       
       setOrders(prev => [...prev, newOrder]);
       triggerSync();
       return newOrderId;
-    } catch (err) {
-      console.error('Error placing parcel order:', err);
-      return null;
+    } catch (err: any) {
+      console.error('[placeParcelOrder] Connection or database error:', err);
+      throw err;
     }
   };
 
