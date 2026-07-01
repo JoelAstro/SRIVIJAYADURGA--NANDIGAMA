@@ -84,6 +84,7 @@ app.post('/api/orders', async (req, res) => {
         isParcel: newOrder.isParcel || false,
         specialNotes: newOrder.specialNotes,
         pickupTime: newOrder.pickupTime,
+        paymentMethod: newOrder.paymentMethod,
         items: {
           create: newOrder.items.map(i => ({
             menuItemId: i.id,
@@ -134,6 +135,7 @@ app.put('/api/orders/:id', async (req, res) => {
           status: updates.status,
           timestamp: updates.timestamp,
           specialNotes: updates.specialNotes,
+          paymentMethod: updates.paymentMethod,
           items: {
             create: updates.items.map(i => ({
               menuItemId: i.id,
@@ -150,7 +152,11 @@ app.put('/api/orders/:id', async (req, res) => {
       // Just updating fields like status
       await prisma.order.update({
         where: { id: orderId },
-        data: { status: updates.status, timestamp: updates.timestamp }
+        data: { 
+          status: updates.status, 
+          timestamp: updates.timestamp,
+          paymentMethod: updates.paymentMethod
+        }
       });
     }
 

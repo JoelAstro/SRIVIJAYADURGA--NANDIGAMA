@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { useApp } from '../context/AppContext';
 import AuthGate from '../components/AuthGate';
-import { Flame, Clock, User, Phone, CheckCircle2, Play, LogOut, Info } from 'lucide-react';
+import { Flame, Clock, User, Phone, CheckCircle2, Play, LogOut, Info, XCircle } from 'lucide-react';
 
 const KitchenDashboard: React.FC = () => {
   const { orders, updateOrderStatus, kitchenSession, logout } = useApp();
@@ -42,7 +42,7 @@ const KitchenDashboard: React.FC = () => {
   useEffect(() => {
     if (orders.length > prevOrdersCountRef.current) {
       const latestOrder = orders[orders.length - 1];
-      if (latestOrder && latestOrder.status === 'PLACED') {
+      if (latestOrder && (latestOrder.status === 'PLACED' || latestOrder.status === 'NEW')) {
         playNewOrderChime();
       }
     }
@@ -59,8 +59,21 @@ const KitchenDashboard: React.FC = () => {
   // Filter KDS tickets (KDS ALL only shows cooking states; READY shows completed items)
   const filteredTickets = orders.filter(o => {
     if (o.status === 'PAID') return false;
+    
     if (filter === 'ALL') {
-      return o.status === 'PLACED' || o.status === 'PREPARING';
+      return o.status === 'PLACED' || o.status === 'NEW' || o.status === 'ACCEPTED' || o.status === 'PREPARING';
+    }
+    if (filter === 'PLACED') {
+      return o.status === 'PLACED' || o.status === 'NEW';
+    }
+    if (filter === 'PREPARING') {
+      return o.status === 'PREPARING' || o.status === 'ACCEPTED';
+    }
+    if (filter === 'READY') {
+      return o.status === 'READY';
+    }
+    if (filter === 'COMPLETED') {
+      return o.status === 'COMPLETED' || o.status === 'PICKED_UP';
     }
     return o.status === filter;
   });
@@ -78,13 +91,13 @@ const KitchenDashboard: React.FC = () => {
           <h2 className="font-logo font-extrabold text-2xl text-maroon dark:text-saffron flex items-center gap-2">
             <Flame className="w-6 h-6 animate-pulse" /> Kitchen Live Order Board
           </h2>
-          <p className="text-xs text-neutral-500 dark:text-neutral-400">Real-time KDS display monitor for chef crews</p>
+          <p className="text-xs text-neutral-500 dark:text-neutral-450">Real-time KDS display monitor for chef crews</p>
         </div>
 
         <div className="flex items-center gap-3">
           <button 
             onClick={handleLogoutClick}
-            className="flex items-center gap-1.5 px-3 py-2 border border-neutral-300 dark:border-neutral-700 hover:border-red-500 rounded-xl text-xs font-semibold transition-all hover:text-red-500"
+            className="flex items-center gap-1.5 px-3 py-2 border border-neutral-300 dark:border-neutral-700 hover:border-red-500 rounded-xl text-xs font-semibold transition-all hover:text-red-500 bg-transparent cursor-pointer"
           >
             <LogOut className="w-3.5 h-3.5" /> Logout
           </button>
@@ -93,19 +106,43 @@ const KitchenDashboard: React.FC = () => {
 
       {/* Kanban Filters */}
       <div className="flex gap-2 overflow-x-auto pb-1 no-print">
-        {(['ALL', 'PLACED', 'PREPARING', 'READY', 'COMPLETED'] as const).map(f => (
-          <button 
-            key={f}
-            onClick={() => setFilter(f)}
-            className={`px-4 py-2 rounded-xl text-xs font-bold transition-all border ${
-              filter === f 
-                ? 'bg-maroon text-white border-maroon dark:bg-saffron dark:text-maroon dark:border-saffron shadow-sm'
-                : 'bg-white dark:bg-neutral-800 text-neutral-600 dark:text-neutral-300 border-neutral-200 dark:border-neutral-700'
-            }`}
-          >
-            {f === 'ALL' ? 'All Cooking Tickets' : f === 'READY' ? 'Ready' : f === 'COMPLETED' ? 'Completed' : f}
-          </button>
-        ))}
+        {(['ALL', 'PLACED', 'PREPARING', 'READY', 'COMPLETED'] as const).map(f => {
+          let badgeCount = 0;
+          if (f === 'ALL') {
+            badgeCount = orders.filter(o => o.status === 'PLACED' || o.status === 'NEW' || o.status === 'ACCEPTED' || o.status === 'PREPARING').length;
+          } else if (f === 'PLACED') {
+            badgeCount = orders.filter(o => o.status === 'PLACED' || o.status === 'NEW').length;
+          } else if (f === 'PREPARING') {
+            badgeCount = orders.filter(o => o.status === 'PREPARING' || o.status === 'ACCEPTED').length;
+          } else if (f === 'READY') {
+            badgeCount = orders.filter(o => o.status === 'READY').length;
+          } else if (f === 'COMPLETED') {
+            badgeCount = orders.filter(o => o.status === 'COMPLETED' || o.status === 'PICKED_UP').length;
+          }
+
+          return (
+            <button 
+              key={f}
+              onClick={() => setFilter(f)}
+              className={`px-4 py-2 rounded-xl text-xs font-bold transition-all border flex items-center gap-2 cursor-pointer ${
+                filter === f 
+                  ? 'bg-maroon text-white border-maroon dark:bg-saffron dark:text-maroon dark:border-saffron shadow-sm'
+                  : 'bg-white dark:bg-neutral-800 text-neutral-600 dark:text-neutral-355 border-neutral-200 dark:border-neutral-700'
+              }`}
+            >
+              <span>{f === 'ALL' ? 'All Cooking Tickets' : f === 'READY' ? 'Ready' : f === 'COMPLETED' ? 'Completed' : f}</span>
+              {badgeCount > 0 && (
+                <span className={`px-1.5 py-0.5 rounded-full text-[9px] font-black ${
+                  filter === f
+                    ? 'bg-white text-maroon dark:bg-maroon dark:text-saffron'
+                    : 'bg-maroon/10 text-maroon dark:bg-saffron/10 dark:text-saffron'
+                }`}>
+                  {badgeCount}
+                </span>
+              )}
+            </button>
+          );
+        })}
       </div>
 
       {/* KDS Tickets Grid */}
@@ -122,15 +159,25 @@ const KitchenDashboard: React.FC = () => {
             let cardBorder = 'border-neutral-200 dark:border-neutral-800';
             let headerBg = 'bg-neutral-100 dark:bg-neutral-800/80 text-neutral-600 dark:text-neutral-300';
             
-            if (order.status === 'PLACED') {
-              cardBorder = 'border-amber-400/50';
-              headerBg = 'bg-amber-500 text-white shadow-md shadow-amber-500/10';
+            if (order.status === 'NEW' || order.status === 'PLACED') {
+              cardBorder = order.status === 'NEW' 
+                ? 'border-amber-500 dark:border-saffron ring-4 ring-amber-500/20 shadow-md shadow-amber-500/5 dark:shadow-saffron/5 animate-pulse' 
+                : 'border-amber-400/50';
+              headerBg = order.status === 'NEW'
+                ? 'bg-gradient-to-r from-amber-500 to-red-500 text-white font-extrabold shadow-md'
+                : 'bg-amber-500 text-white shadow-md shadow-amber-500/10';
+            } else if (order.status === 'ACCEPTED') {
+              cardBorder = 'border-blue-400 dark:border-blue-800';
+              headerBg = 'bg-blue-600 text-white shadow-md';
             } else if (order.status === 'PREPARING') {
               cardBorder = 'border-maroon/40 dark:border-saffron/40';
               headerBg = 'bg-maroon text-white dark:bg-saffron dark:text-maroon shadow-md';
             } else if (order.status === 'READY') {
               cardBorder = 'border-emerald-400/50';
               headerBg = 'bg-emerald-600 text-white shadow-md';
+            } else if (order.status === 'CANCELLED') {
+              cardBorder = 'border-red-400/50';
+              headerBg = 'bg-red-650 text-white shadow-md';
             }
 
             return (
@@ -142,13 +189,16 @@ const KitchenDashboard: React.FC = () => {
                 <div>
                   <div className={`p-4 flex items-center justify-between font-logo ${headerBg}`}>
                     <div>
-                      <h4 className="font-extrabold text-base leading-none">
+                      <h4 className="font-extrabold text-base leading-none flex items-center gap-1.5">
                         {order.tableNo === 'Takeaway' ? '🥡 Takeaway' : `Table ${order.tableNo}`}
                       </h4>
                       <span className="text-[10px] opacity-75 font-semibold font-body block mt-0.5">{order.id}</span>
                     </div>
                     <div className="flex items-center gap-1 text-[10px] font-bold opacity-90">
-                      <Clock className="w-3.5 h-3.5" /> {minutesElapsed}m ago
+                      <Clock className={`w-3.5 h-3.5 ${minutesElapsed >= 15 ? 'text-red-500 dark:text-red-400 animate-bounce' : ''}`} /> 
+                      <span className={minutesElapsed >= 15 ? 'text-red-500 dark:text-red-400 font-extrabold' : ''}>
+                        {minutesElapsed}m ago
+                      </span>
                     </div>
                   </div>
 
@@ -158,11 +208,21 @@ const KitchenDashboard: React.FC = () => {
                     {/* Customer */}
                     <div className="text-[10px] text-neutral-500 dark:text-neutral-400 border-b border-neutral-100 dark:border-neutral-800 pb-2 space-y-0.5">
                       <div className="flex items-center gap-1.5 font-bold">
-                        <User className="w-3.5 h-3.5" /> Cust: {order.customerName}
+                        <User className="w-3.5 h-3.5" /> Cust: {order.customerName || 'Walk-in'}
                       </div>
-                      <div className="flex items-center gap-1.5">
-                        <Phone className="w-3.5 h-3.5" /> Phone: {order.customerPhone}
-                      </div>
+                      {order.customerPhone && (
+                        <div className="flex items-center gap-1.5">
+                          <Phone className="w-3.5 h-3.5" /> Phone: {order.customerPhone}
+                        </div>
+                      )}
+                      {order.paymentMethod && (
+                        <div className="flex items-center gap-1.5 pt-1 mt-1 border-t border-neutral-100 dark:border-neutral-800/40 font-bold">
+                          <span>Pay Mode:</span>
+                          <span className="px-1.5 py-0.5 bg-neutral-100 dark:bg-neutral-850 rounded text-neutral-700 dark:text-neutral-300">
+                            {order.paymentMethod === 'UPI' ? '📱 UPI' : order.paymentMethod === 'Cash' ? '💵 Cash' : '💳 Card'}
+                          </span>
+                        </div>
+                      )}
                     </div>
 
                     {/* Special instruction notes */}
@@ -199,34 +259,114 @@ const KitchenDashboard: React.FC = () => {
                 </div>
 
                 {/* Footer Controls */}
-                <div className="p-4 border-t border-neutral-100 dark:border-neutral-800/60 no-print">
+                <div className="p-4 border-t border-neutral-100 dark:border-neutral-800/60 no-print space-y-2">
+                  
+                  {/* Takeaway Order specific NEW state */}
+                  {order.status === 'NEW' && (
+                    <>
+                      <button 
+                        onClick={() => updateOrderStatus(order.id, 'ACCEPTED')}
+                        className="w-full py-2 bg-amber-500 hover:bg-amber-600 text-white font-bold text-xs rounded-xl shadow-md flex items-center justify-center gap-1.5 transition-all border-none cursor-pointer"
+                      >
+                        Accept Takeaway Order
+                      </button>
+                      <button 
+                        onClick={() => {
+                          if (confirm('Cancel this takeaway order?')) {
+                            updateOrderStatus(order.id, 'CANCELLED');
+                          }
+                        }}
+                        className="w-full py-2 bg-transparent text-red-500 hover:bg-red-500/10 font-bold text-[10px] rounded-xl flex items-center justify-center gap-1.5 transition-all border border-red-500/20 cursor-pointer"
+                      >
+                        <XCircle className="w-3 h-3" /> Cancel Order
+                      </button>
+                    </>
+                  )}
+
+                  {/* Accept Order and cancel for other active states */}
+                  {order.status === 'ACCEPTED' && (
+                    <>
+                      <button 
+                        onClick={() => updateOrderStatus(order.id, 'PREPARING')}
+                        className="w-full py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-xl shadow-md flex items-center justify-center gap-1.5 transition-all border-none cursor-pointer"
+                      >
+                        <Play className="w-3.5 h-3.5 fill-white" /> Start Cooking
+                      </button>
+                      <button 
+                        onClick={() => {
+                          if (confirm('Cancel this takeaway order?')) {
+                            updateOrderStatus(order.id, 'CANCELLED');
+                          }
+                        }}
+                        className="w-full py-2 bg-transparent text-red-500 hover:bg-red-500/10 font-bold text-[10px] rounded-xl flex items-center justify-center gap-1.5 transition-all border border-red-500/20 cursor-pointer"
+                      >
+                        <XCircle className="w-3 h-3" /> Cancel Order
+                      </button>
+                    </>
+                  )}
+
                   {order.status === 'PLACED' && (
-                    <button 
-                      onClick={() => updateOrderStatus(order.id, 'PREPARING')}
-                      className="w-full py-2 bg-amber-500 hover:bg-amber-600 text-white font-bold text-xs rounded-xl shadow-md flex items-center justify-center gap-1.5 transition-all"
-                    >
-                      <Play className="w-3.5 h-3.5 fill-white" /> Start Cooking
-                    </button>
+                    <>
+                      <button 
+                        onClick={() => updateOrderStatus(order.id, 'PREPARING')}
+                        className="w-full py-2 bg-amber-500 hover:bg-amber-600 text-white font-bold text-xs rounded-xl shadow-md flex items-center justify-center gap-1.5 transition-all border-none cursor-pointer"
+                      >
+                        <Play className="w-3.5 h-3.5 fill-white" /> Start Cooking
+                      </button>
+                      <button 
+                        onClick={() => {
+                          if (confirm('Cancel this dining order?')) {
+                            updateOrderStatus(order.id, 'CANCELLED');
+                          }
+                        }}
+                        className="w-full py-2 bg-transparent text-red-500 hover:bg-red-500/10 font-bold text-[10px] rounded-xl flex items-center justify-center gap-1.5 transition-all border border-red-500/20 cursor-pointer"
+                      >
+                        <XCircle className="w-3 h-3" /> Cancel Order
+                      </button>
+                    </>
                   )}
+
                   {order.status === 'PREPARING' && (
-                    <button 
-                      onClick={() => updateOrderStatus(order.id, 'READY')}
-                      className="w-full py-2 bg-maroon text-white dark:bg-saffron dark:text-maroon font-bold text-xs rounded-xl shadow-md flex items-center justify-center gap-1.5 transition-all"
-                    >
-                      <CheckCircle2 className="w-3.5 h-3.5" /> Mark Prepared
-                    </button>
+                    <>
+                      <button 
+                        onClick={() => updateOrderStatus(order.id, 'READY')}
+                        className="w-full py-2 bg-maroon text-white dark:bg-saffron dark:text-maroon font-bold text-xs rounded-xl shadow-md flex items-center justify-center gap-1.5 transition-all border-none cursor-pointer"
+                      >
+                        <CheckCircle2 className="w-3.5 h-3.5" /> Mark Prepared
+                      </button>
+                      <button 
+                        onClick={() => {
+                          if (confirm('Cancel this cooking order?')) {
+                            updateOrderStatus(order.id, 'CANCELLED');
+                          }
+                        }}
+                        className="w-full py-2 bg-transparent text-red-500 hover:bg-red-500/10 font-bold text-[10px] rounded-xl flex items-center justify-center gap-1.5 transition-all border border-red-500/20 cursor-pointer"
+                      >
+                        <XCircle className="w-3 h-3" /> Cancel Order
+                      </button>
+                    </>
                   )}
+
                   {order.status === 'READY' && (
                     <button 
                       onClick={() => updateOrderStatus(order.id, 'COMPLETED')}
-                      className="w-full py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl shadow-md flex items-center justify-center gap-1.5 transition-all"
+                      className="w-full py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl shadow-md flex items-center justify-center gap-1.5 transition-all border-none cursor-pointer"
                     >
-                      <CheckCircle2 className="w-3.5 h-3.5" /> Mark Completed
+                      <CheckCircle2 className="w-3.5 h-3.5" /> 
+                      {order.tableNo === 'Takeaway' ? 'Mark Picked Up' : 'Mark Completed'}
                     </button>
                   )}
-                  {order.status === 'COMPLETED' && (
+
+                  {(order.status === 'COMPLETED' || order.status === 'PICKED_UP' || order.status === 'PAID') && (
                     <div className="flex items-center justify-center gap-1 text-xs font-bold text-emerald-600 dark:text-emerald-400 py-1.5 font-logo">
-                      <CheckCircle2 className="w-4 h-4" /> Completed &amp; Delivered
+                      <CheckCircle2 className="w-4 h-4" /> 
+                      {order.tableNo === 'Takeaway' ? 'Picked Up & Completed' : 'Completed & Delivered'}
+                    </div>
+                  )}
+
+                  {order.status === 'CANCELLED' && (
+                    <div className="flex items-center justify-center gap-1 text-xs font-bold text-red-650 dark:text-red-400 py-1.5 font-logo">
+                      <XCircle className="w-4 h-4" /> Order Cancelled
                     </div>
                   )}
                 </div>

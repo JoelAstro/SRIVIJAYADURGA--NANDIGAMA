@@ -27,12 +27,13 @@ export interface Order {
   tableNo: string;
   customerName: string;
   customerPhone: string;
-  status: 'PLACED' | 'PREPARING' | 'READY' | 'COMPLETED' | 'BILLING' | 'PENDING_VERIFY' | 'PAID';
+  status: 'PLACED' | 'PREPARING' | 'READY' | 'COMPLETED' | 'BILLING' | 'PENDING_VERIFY' | 'PAID' | 'NEW' | 'ACCEPTED' | 'PICKED_UP' | 'CANCELLED';
   items: OrderItem[];
   timestamp: number;
   isParcel: boolean;
   specialNotes?: string;
   pickupTime?: string;
+  paymentMethod?: string;
 }
 
 export interface Invoice {
@@ -96,7 +97,6 @@ interface AppContextType {
   menuItems: any[];
   setTheme: (theme: 'dark' | 'light') => void;
   reserveTable: (tableNo: string, customerName: string, customerPhone: string, slot?: string) => boolean;
-  occupyTable: (tableNo: string) => void;
   releaseTable: (tableNo: string) => void;
   addToCart: (item: any) => void;
   updateCartQty: (itemId: number, change: number) => void;
@@ -119,6 +119,7 @@ interface AppContextType {
   updateParcelMenu: (newMenu: any[]) => void;
   bgImage: string;
   setBgImage: (img: string) => void;
+  placeParcelOrder: (item: any, quantity: number, customerName: string, customerPhone: string, specialNotes?: string, paymentMethod?: string) => Promise<string | null>;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -209,30 +210,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const [menuItems, setMenuItems] = useState<any[]>(() => {
     const stored = localStorage.getItem('svd_menu_items');
-    if (stored) {
-      try {
-        const parsed = JSON.parse(stored);
-        if (parsed.length === MENU_ITEMS.length) {
-          return parsed;
-        }
-      } catch (e) {}
-    }
-    localStorage.setItem('svd_menu_items', JSON.stringify(MENU_ITEMS));
-    return MENU_ITEMS;
+    return stored ? JSON.parse(stored) : MENU_ITEMS;
   });
 
   const [parcelItems, setParcelItems] = useState<any[]>(() => {
     const stored = localStorage.getItem('svd_parcel_items');
-    if (stored) {
-      try {
-        const parsed = JSON.parse(stored);
-        if (parsed.length === PARCEL_ITEMS.length) {
-          return parsed;
-        }
-      } catch (e) {}
-    }
-    localStorage.setItem('svd_parcel_items', JSON.stringify(PARCEL_ITEMS));
-    return PARCEL_ITEMS;
+    return stored ? JSON.parse(stored) : PARCEL_ITEMS;
   });
 
   const [activeTable, setActiveTable] = useState<string | null>(null);
@@ -774,24 +757,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     triggerSync();
   };
 
-  const occupyTable = (tableNo: string) => {
-    const updated = tables.map(t => {
-      if (t.number === tableNo) {
-        return { 
-          ...t, 
-          status: 'OCCUPIED' as const, 
-          bookingTimeSlot: null,
-          customerName: 'Walk-in Customer',
-          customerPhone: ''
-        };
-      }
-      return t;
-    });
-    localStorage.setItem('svd_tables', JSON.stringify(updated));
-    setTables(updated);
-    triggerSync();
-  };
-
 
   // --- SETTINGS ACTIONS ---
   const updateUpiSettings = (newUpi: string, newQrUrl: string) => {
@@ -983,6 +948,50 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return true;
   };
 
+  const placeParcelOrder = async (
+    item: any,
+    quantity: number,
+    customerName: string,
+    customerPhone: string,
+    specialNotes?: string,
+    paymentMethod?: string
+  ) => {
+    const newOrderId = 'ORD-' + Math.random().toString(36).substr(2, 9).toUpperCase();
+    const newOrder: Order = {
+      id: newOrderId,
+      tableNo: 'Takeaway',
+      customerName,
+      customerPhone,
+      status: 'NEW',
+      items: [{
+        id: item.id,
+        name: item.name,
+        price: item.price,
+        quantity: quantity
+      }],
+      timestamp: Date.now(),
+      isParcel: true,
+      specialNotes,
+      paymentMethod
+    };
+
+    try {
+      const response = await fetch(`${API_URL}/api/orders`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(newOrder)
+      });
+      if (!response.ok) throw new Error('Failed to create order');
+      
+      setOrders(prev => [...prev, newOrder]);
+      triggerSync();
+      return newOrderId;
+    } catch (err) {
+      console.error('Error placing parcel order:', err);
+      return null;
+    }
+  };
+
   const updateOrderStatus = (orderId: string, status: Order['status']) => {
     let nextTables = tables;
     const nextOrders = orders.map(o => {
@@ -1147,7 +1156,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       menuItems,
       setTheme,
       reserveTable,
-      occupyTable,
       releaseTable,
       addToCart,
       updateCartQty,
@@ -1169,7 +1177,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       parcelItems,
       updateParcelMenu,
       bgImage,
-      setBgImage
+      setBgImage,
+      placeParcelOrder
     }}>
       {children}
     </AppContext.Provider>
