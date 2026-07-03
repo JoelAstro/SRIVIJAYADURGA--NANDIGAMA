@@ -4,73 +4,6 @@ import { Search, Plus, Minus, ShoppingBag, ClipboardList, CreditCard, X, Shoppin
 import ImageWithFallback from './ImageWithFallback';
 import { motion, AnimatePresence } from 'framer-motion';
 
-const splitIntoPyramid = (items: string[]): string[][] => {
-  const N = items.length;
-  if (N === 0) return [];
-  
-  // Determine number of rows dynamically
-  const R = N <= 6 ? 1 : (N <= 12 ? 2 : (N <= 20 ? 3 : 4));
-  
-  // Base target weights
-  const step = 0.15;
-  const weights: number[] = [];
-  for (let i = 0; i < R; i++) {
-    weights.push(1 + (R - 1 - i) * step);
-  }
-  
-  const totalWeight = weights.reduce((sum, w) => sum + w, 0);
-  const targetSizes = weights.map(w => Math.round((w / totalWeight) * N));
-  
-  // Adjust sizes so they sum to exactly N
-  let currentSum = targetSizes.reduce((sum, s) => sum + s, 0);
-  while (currentSum !== N) {
-    if (currentSum < N) {
-      for (let i = 0; i < R && currentSum < N; i++) {
-        targetSizes[i]++;
-        currentSum++;
-      }
-    } else {
-      for (let i = R - 1; i >= 0 && currentSum > N; i--) {
-        if (targetSizes[i] > 1) {
-          targetSizes[i]--;
-          currentSum--;
-        }
-      }
-    }
-  }
-
-  // Ensure targetSizes is sorted in non-increasing order: targetSizes[i] >= targetSizes[i+1]
-  for (let i = 0; i < R - 1; i++) {
-    if (targetSizes[i] < targetSizes[i + 1]) {
-      const diff = targetSizes[i + 1] - targetSizes[i];
-      targetSizes[i] += Math.ceil(diff / 2);
-      targetSizes[i + 1] -= Math.ceil(diff / 2);
-    }
-  }
-
-  // Final sanity check sum correction
-  currentSum = targetSizes.reduce((sum, s) => sum + s, 0);
-  while (currentSum !== N) {
-    if (currentSum < N) {
-      targetSizes[0]++;
-      currentSum++;
-    } else {
-      targetSizes[R - 1]--;
-      currentSum--;
-    }
-  }
-  
-  // Split items into rows based on targetSizes
-  const rows: string[][] = [];
-  let index = 0;
-  for (let i = 0; i < R; i++) {
-    const size = targetSizes[i];
-    rows.push(items.slice(index, index + size));
-    index += size;
-  }
-  return rows;
-};
-
 const MenuSection: React.FC = () => {
   const { 
     activeTable, cart, addToCart, updateCartQty, 
@@ -105,11 +38,8 @@ const MenuSection: React.FC = () => {
   const categories = [
     'All', 'Veg Biryani', 'Non-Veg Biryani', 'Veg Fried Rice', 'Non-Veg Fried Rice',
     'Veg Starters', 'Non-Veg Starters', 'Sea Food Starters', 'Egg Items',
-    'Tandoori Non-Veg', 'Tandoori Veg', 'Veg Curries', 'Non-Veg Curries',
-    'Roti Basket', 'Soups Veg', 'Soups Non-Veg'
+    'Tandoori Non-Veg', 'Tandoori Veg'
   ];
-
-  const rows = splitIntoPyramid(categories);
 
   // Pre-populate customer details if dining session is already active
   useEffect(() => {
@@ -129,8 +59,9 @@ const MenuSection: React.FC = () => {
 
   // Calculate totals
   const subtotal = cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
+  const tax = 0;
+  const serviceCharge = 0;
   const grandTotal = subtotal;
-
   const totalCartItems = cart.reduce((sum, item) => sum + item.quantity, 0);
 
   const handlePlaceOrderClick = (e: React.FormEvent) => {
@@ -184,24 +115,20 @@ const MenuSection: React.FC = () => {
             />
           </div>
 
-          {/* Sticky Category scroll row - beautifully styled, pyramid/cascade layout dynamically calculated */}
-          <div className="sticky top-[112px] z-30 bg-bg-light/95 dark:bg-bg-dark/95 backdrop-blur-md -mx-4 px-4 py-3 border-y border-neutral-200/50 dark:border-neutral-800/50 flex flex-col gap-1.5 justify-center items-center no-print">
-            {rows.map((row, rowIdx) => (
-              <div key={rowIdx} className="flex flex-wrap justify-center gap-1.5 sm:gap-2 w-full">
-                {row.map(cat => (
-                  <button 
-                    key={cat}
-                    onClick={() => setSelectedCategory(cat)}
-                    className={`px-3 py-1.5 rounded-lg text-[10px] sm:text-xs font-bold border transition-all duration-200 ${
-                      selectedCategory === cat
-                        ? 'bg-maroon text-white border-maroon dark:bg-saffron dark:text-maroon dark:border-saffron shadow-sm scale-[1.02]'
-                        : 'bg-white dark:bg-neutral-900 text-neutral-600 dark:text-neutral-400 border-neutral-200 dark:border-neutral-800 hover:border-maroon/20 dark:hover:border-saffron/30 hover:bg-neutral-50 dark:hover:bg-neutral-850'
-                    }`}
-                  >
-                    {cat}
-                  </button>
-                ))}
-              </div>
+          {/* Sticky Category scroll row - beautifully styled */}
+          <div className="sticky top-[112px] z-30 bg-bg-light/95 dark:bg-bg-dark/95 backdrop-blur-md -mx-4 px-4 py-3 border-y border-neutral-200/50 dark:border-neutral-800/50 flex gap-2.5 overflow-x-auto scrollbar-none no-print">
+            {categories.map(cat => (
+              <button 
+                key={cat}
+                onClick={() => setSelectedCategory(cat)}
+                className={`px-5 py-2.5 rounded-xl text-xs font-bold whitespace-nowrap border transition-all duration-200 ${
+                  selectedCategory === cat
+                    ? 'bg-maroon text-white border-maroon dark:bg-saffron dark:text-maroon dark:border-saffron shadow-md scale-102'
+                    : 'bg-white dark:bg-neutral-900 text-neutral-600 dark:text-neutral-400 border-neutral-200 dark:border-neutral-800 hover:border-maroon/20 dark:hover:border-saffron/30 hover:bg-neutral-50 dark:hover:bg-neutral-850'
+                }`}
+              >
+                {cat}
+              </button>
             ))}
           </div>
 

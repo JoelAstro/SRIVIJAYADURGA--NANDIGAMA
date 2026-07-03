@@ -8,7 +8,7 @@ import GallerySection from '../components/GallerySection';
 import ContactSection from '../components/ContactSection';
 import { 
   Home, Calendar, BookOpen, Truck, Copy, 
-  Star, CreditCard, Send, ChevronLeft, ChevronRight 
+  Star, CreditCard, Send 
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 
@@ -33,53 +33,6 @@ const CustomerPortal: React.FC<CustomerPortalProps> = ({ activeTab, setActiveTab
   const [ratingComment, setRatingComment] = useState('');
   const [ratingName, setRatingName] = useState('');
   const [ratingPhone, setRatingPhone] = useState('');
-
-  // Menu card image rotation states
-  const menuImages = [
-    '/menu_card.jpg',
-    '/menu_page_1.png',
-    '/menu_page_2.png',
-    '/menu_page_3.png',
-    '/menu_page_4.png',
-    '/menu_page_5.png',
-    '/menu_page_6.png',
-    '/menu_page_7.png',
-  ];
-  const [currentMenuIndex, setCurrentMenuIndex] = useState(0);
-  const [isMobile, setIsMobile] = useState(false);
-
-  useEffect(() => {
-    const handleResize = () => {
-      setIsMobile(window.innerWidth < 768);
-    };
-    handleResize();
-    window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
-  }, []);
-
-  const step = isMobile ? 1 : 2;
-  const totalItems = menuImages.length;
-
-  useEffect(() => {
-    if (!isMobile && currentMenuIndex % 2 !== 0) {
-      setCurrentMenuIndex((prev) => Math.max(0, prev - 1));
-    }
-  }, [isMobile]);
-
-  useEffect(() => {
-    const timer = setInterval(() => {
-      setCurrentMenuIndex((prev) => (prev + step) % totalItems);
-    }, 3000);
-    return () => clearInterval(timer);
-  }, [currentMenuIndex, step, totalItems]);
-
-  const handlePrevMenu = () => {
-    setCurrentMenuIndex((prev) => (prev - step + totalItems) % totalItems);
-  };
-
-  const handleNextMenu = () => {
-    setCurrentMenuIndex((prev) => (prev + step) % totalItems);
-  };
 
   // Find active order for table
   const activeOrder = activeTable 
@@ -130,7 +83,7 @@ const CustomerPortal: React.FC<CustomerPortalProps> = ({ activeTab, setActiveTab
     return { subtotal, tax, service, total };
   };
 
-  const { total } = calculateBill();
+  const { subtotal, tax, service, total } = calculateBill();
 
   // Stepper helper
   const getStepIndex = (status: string) => {
@@ -447,7 +400,7 @@ const CustomerPortal: React.FC<CustomerPortalProps> = ({ activeTab, setActiveTab
 
               <button 
                 onClick={handleCheckoutSettle}
-                className="w-full py-3.5 bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-sm rounded-xl shadow-md hover:opacity-95 transition-all flex items-center justify-center gap-2"
+                className="w-full py-3.5 bg-emerald-650 hover:bg-emerald-755 text-white font-extrabold text-sm rounded-xl shadow-md hover:opacity-95 transition-all flex items-center justify-center gap-2"
               >
                 <Send className="w-4 h-4" /> Confirm Payment
               </button>
@@ -523,13 +476,13 @@ const CustomerPortal: React.FC<CustomerPortalProps> = ({ activeTab, setActiveTab
                 <h3 className="font-logo font-extrabold text-2xl text-maroon dark:text-saffron">About Our Restaurant</h3>
                 <div className="space-y-3 text-xs text-neutral-500 dark:text-neutral-400 leading-relaxed font-medium">
                   <p>
-                    <strong>Restaurant History:</strong> Sri Vijaya Durga Restaurant has been a benchmark of culinary excellence in Nandigama, dedicated to serving rich signature Biryanis, Claypot Tandoori platters, and authentic North Indian curries with premium standards.
+                    <strong>Restaurant History:</strong> Sri Vijaya Durga Restaurant has been a benchmark of culinary excellence in Guntur, dedicated to serving rich signature Biryanis, Claypot Tandoori platters, and authentic North Indian curries with premium standards.
                   </p>
                   <p>
                     <strong>Special Features:</strong> We specialize in bulk catering for marriages, events, corporate events, and parties. We offer a ❄️ Fully Air Conditioned family dining hall, prompt 🛵 Home Delivery, and a completely digital QR Menu Ordering System.
                   </p>
                   <p>
-                    <strong>Opening Year:</strong> Established in the year 2018 by proprietor Udarapu Navaneeth, SVD continues its legacy of "Tradition in Every Bite".
+                    <strong>Opening Year:</strong> Established in the year 2012 by proprietor Udarapu Navaneeth, SVD continues its legacy of "Tradition in Every Bite".
                   </p>
                 </div>
               </div>
@@ -548,69 +501,15 @@ const CustomerPortal: React.FC<CustomerPortalProps> = ({ activeTab, setActiveTab
             </div>
 
             {/* Menu Card showcase preview */}
-            <div className="space-y-6 text-center max-w-5xl mx-auto px-4 md:px-8">
+            <div className="space-y-4 text-center">
               <h3 className="font-logo font-extrabold text-2xl text-maroon dark:text-saffron">Our Menu Card</h3>
               <p className="text-xs text-neutral-500 dark:text-neutral-400 max-w-md mx-auto">Browse our delicious printed offerings. Scan the table QR code to place orders instantly from your mobile phone!</p>
-              
-              {/* Slider Container with absolute buttons */}
-              <div className="relative w-full max-w-4xl mx-auto px-2">
-                {/* Window showing visible items */}
-                <div className="overflow-hidden w-full">
-                  <div 
-                    className="flex transition-transform duration-500 ease-in-out"
-                    style={{ transform: `translateX(-${currentMenuIndex * (isMobile ? 100 : 50)}%)` }}
-                  >
-                    {menuImages.map((src, idx) => (
-                      <div 
-                        key={idx} 
-                        className="w-full md:w-1/2 flex-shrink-0 px-2 md:px-3"
-                      >
-                        <div className="aspect-[1/1.41] w-full rounded-2xl overflow-hidden border border-neutral-250 dark:border-neutral-805 shadow-md bg-white dark:bg-neutral-900 transition-all duration-300 hover:scale-[1.03] hover:shadow-xl hover:border-maroon/20 dark:hover:border-saffron/20 relative group">
-                          <img 
-                            src={src} 
-                            alt={`Sri Vijaya Durga printed menu card page ${idx + 1}`}
-                            className="w-full h-full object-contain p-2 rounded-2xl bg-white dark:bg-neutral-950"
-                          />
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Left/Prev Arrow Button */}
-                <button
-                  onClick={handlePrevMenu}
-                  className="absolute left-0 md:-left-6 top-1/2 -translate-y-1/2 z-20 w-10 h-10 flex items-center justify-center rounded-full bg-white/95 dark:bg-neutral-800/95 text-neutral-800 dark:text-white shadow-lg border border-neutral-250 dark:border-neutral-700 transition-all hover:bg-white dark:hover:bg-neutral-850 hover:scale-105 active:scale-95 focus:outline-none"
-                  aria-label="Previous page"
-                >
-                  <ChevronLeft className="w-5 h-5" />
-                </button>
-
-                {/* Right/Next Arrow Button */}
-                <button
-                  onClick={handleNextMenu}
-                  className="absolute right-0 md:-right-6 top-1/2 -translate-y-1/2 z-20 w-10 h-10 flex items-center justify-center rounded-full bg-white/95 dark:bg-neutral-800/95 text-neutral-800 dark:text-white shadow-lg border border-neutral-250 dark:border-neutral-700 transition-all hover:bg-white dark:hover:bg-neutral-850 hover:scale-105 active:scale-95 focus:outline-none"
-                  aria-label="Next page"
-                >
-                  <ChevronRight className="w-5 h-5" />
-                </button>
-              </div>
-
-              {/* Page Indicator Dots */}
-              <div className="flex justify-center gap-1.5 pt-2">
-                {Array.from({ length: Math.ceil(totalItems / step) }).map((_, index) => {
-                  const isActive = Math.floor(currentMenuIndex / step) === index;
-                  return (
-                    <button
-                      key={index}
-                      onClick={() => setCurrentMenuIndex(index * step)}
-                      className={`w-1.5 h-1.5 rounded-full transition-all duration-300 ${
-                        isActive ? 'bg-maroon dark:bg-saffron w-4' : 'bg-neutral-300 dark:bg-neutral-750'
-                      }`}
-                      aria-label={`Go to page ${index + 1}`}
-                    />
-                  );
-                })}
+              <div className="max-w-md mx-auto rounded-3xl border border-neutral-300 dark:border-neutral-700 overflow-hidden shadow-lg bg-white dark:bg-neutral-900">
+                <img 
+                  src="/menu_card.jpg" 
+                  alt="Sri Vijaya Durga printed menu card cover"
+                  className="w-full h-auto object-cover"
+                />
               </div>
             </div>
 

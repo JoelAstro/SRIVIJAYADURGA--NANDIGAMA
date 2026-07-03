@@ -84,41 +84,6 @@ const FloorMap: React.FC = () => {
     return { borderClass, bgClass, statusLabel };
   };
 
-  const getTableCapacityText = (tableNum: string, defaultCapacity: number) => {
-    switch (tableNum) {
-      // Ground Floor
-      case 'G1': return '👥 4 Members';
-      case 'G2': return '👥 6 Members';
-      case 'G3': return '👥 6 Members';
-      case 'G4': return '👥 6 Members';
-      case 'G5': return '👥 5 Members';
-      
-      // Section A
-      case 'A1': return '👥 10 Members';
-      case 'A2': return '👥 10 Members';
-      case 'A3': return '👥 6 Members';
-      case 'A4': return '👥 2 Members';
-      case 'A5': return '👥 2 Members';
-      
-      // Section B
-      case 'B1': return '👥 6 Members (Mandi)';
-      case 'B2': return '👥 4 Members (Mandi)';
-      case 'B3': return '👥 6 Members (Mandi)';
-      
-      // Section C
-      case 'C1': return '👥 4 Members';
-      case 'C2': return '👥 4 Members';
-      case 'C3': return '👥 4 Members';
-      
-      // Section D
-      case 'D1': return '👥 4 Members';
-      case 'D2': return '👥 4 Members';
-      case 'D3': return '👥 2 Members';
-      
-      default: return `👥 ${defaultCapacity} Members`;
-    }
-  };
-
   return (
     <div className="w-full space-y-6">
       
@@ -197,13 +162,10 @@ const FloorMap: React.FC = () => {
                     <div 
                       key={t.id}
                       onClick={() => handleTableClick(t.number, t.status)}
-                      className={`rounded-2xl border-2 p-4 flex flex-col items-center justify-center text-center gap-1.5 shadow-sm transition-all duration-300 select-none relative ${borderClass} ${bgClass}`}
+                      className={`rounded-2xl border-2 p-5 flex flex-col items-center justify-center text-center gap-1.5 shadow-sm transition-all duration-300 select-none relative ${borderClass} ${bgClass}`}
                     >
-                      <h4 className="font-logo font-extrabold text-lg leading-tight">{t.number}</h4>
-                      <span className="text-[10px] font-bold text-neutral-500 dark:text-neutral-450 leading-none">
-                        {getTableCapacityText(t.number, t.capacity)}
-                      </span>
-                      <span className={`px-2 py-0.5 rounded-full text-[9px] font-bold ${
+                      <h4 className="font-logo font-extrabold text-xl mb-1">{t.number}</h4>
+                      <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold ${
                         t.status === 'AVAILABLE' ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-400' :
                         t.status === 'OCCUPIED' ? 'bg-rose-100 text-rose-800 dark:bg-rose-950/40 dark:text-rose-400' :
                         'bg-orange-100 text-orange-800 dark:bg-orange-950/40 dark:text-orange-400'
@@ -241,13 +203,10 @@ const FloorMap: React.FC = () => {
                             <div 
                               key={t.id}
                               onClick={() => handleTableClick(t.number, t.status)}
-                              className={`rounded-2xl border-2 p-4 flex flex-col items-center justify-center text-center gap-1.5 shadow-sm transition-all duration-300 select-none relative ${borderClass} ${bgClass}`}
+                              className={`rounded-2xl border-2 p-5 flex flex-col items-center justify-center text-center gap-1.5 shadow-sm transition-all duration-300 select-none relative ${borderClass} ${bgClass}`}
                             >
-                              <h4 className="font-logo font-extrabold text-lg leading-tight">{t.number}</h4>
-                              <span className="text-[10px] font-bold text-neutral-500 dark:text-neutral-450 leading-none">
-                                {getTableCapacityText(t.number, t.capacity)}
-                              </span>
-                              <span className={`px-2 py-0.5 rounded-full text-[9px] font-bold ${
+                              <h4 className="font-logo font-extrabold text-xl mb-1">{t.number}</h4>
+                              <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold ${
                                 t.status === 'AVAILABLE' ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-400' :
                                 t.status === 'OCCUPIED' ? 'bg-rose-100 text-rose-800 dark:bg-rose-950/40 dark:text-rose-400' :
                                 'bg-orange-100 text-orange-800 dark:bg-orange-950/40 dark:text-orange-400'
