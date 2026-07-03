@@ -27,6 +27,27 @@ const io = new Server(server, { cors: { origin: '*', methods: ['GET', 'POST'] } 
 // --- PRISMA (PostgreSQL) INIT ---
 const prisma = new PrismaClient();
 
+// Startup Check to verify database connection and schema
+async function runStartupChecks() {
+  console.log('[Startup Check] Verifying database connection and schema...');
+  try {
+    await prisma.order.count();
+    console.log('[Startup Check] Database connection and schema verification successful. Order table is accessible.');
+  } catch (err) {
+    console.error('\n======================================================================');
+    console.error('[Startup Check ERROR] Database check failed!');
+    console.error('Could not access the Order table in the database.');
+    console.error('This is likely because:');
+    console.error('1. You did not specify the schema in your DATABASE_URL environment variable on Render.');
+    console.error('   Please make sure your connection string ends with: &schema=svd');
+    console.error('2. The schema has not been pushed to the database.');
+    console.error('   Run locally: npx prisma db push');
+    console.error('Original Error:', err.message);
+    console.error('======================================================================\n');
+  }
+}
+runStartupChecks();
+
 // --- MONGOOSE (MongoDB) INIT ---
 mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/svd_db')
   .then(() => console.log('[MongoDB] Connected successfully'))
