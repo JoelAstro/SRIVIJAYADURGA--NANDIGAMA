@@ -83,7 +83,7 @@ const CustomerPortal: React.FC<CustomerPortalProps> = ({ activeTab, setActiveTab
     return { subtotal, tax, service, total };
   };
 
-  const { subtotal, tax, service, total } = calculateBill();
+  const { total } = calculateBill();
 
   // Stepper helper
   const getStepIndex = (status: string) => {

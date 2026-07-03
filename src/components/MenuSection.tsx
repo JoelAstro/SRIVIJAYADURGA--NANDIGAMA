@@ -59,8 +59,6 @@ const MenuSection: React.FC = () => {
 
   // Calculate totals
   const subtotal = cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
-  const tax = 0;
-  const serviceCharge = 0;
   const grandTotal = subtotal;
   const totalCartItems = cart.reduce((sum, item) => sum + item.quantity, 0);
 
