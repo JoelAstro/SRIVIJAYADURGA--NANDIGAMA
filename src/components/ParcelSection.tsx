@@ -557,7 +557,7 @@ const ParcelSection: React.FC = () => {
                   <ImageWithFallback src={selectedItem.image} alt={selectedItem.name} className="w-full h-full object-cover" />
                 </div>
                 <div className="space-y-1">
-                  <h5 className="font-logo font-bold text-xs text-neutral-800 dark:text-neutral-255 line-clamp-1">
+                  <h5 className="font-logo font-bold text-xs text-neutral-850 dark:text-neutral-255 line-clamp-1">
                     {selectedItem.name}
                   </h5>
                   <span className="font-logo font-extrabold text-xs text-maroon dark:text-saffron">
@@ -569,21 +569,26 @@ const ParcelSection: React.FC = () => {
               {/* Quantity Selector */}
               <div className="space-y-1">
                 <label className="text-[10px] font-black uppercase tracking-wider text-neutral-500 dark:text-[#D1D5DB]">Quantity</label>
-                <div className="flex items-center justify-between border border-neutral-200 dark:border-neutral-800 rounded-xl bg-neutral-50 dark:bg-neutral-850 h-[38px] px-1">
+                <div className="flex items-center justify-between border border-neutral-200 dark:border-neutral-800 rounded-xl bg-[#1F1F1F] h-[38px] px-1">
                   <button 
                     type="button"
+                    disabled={itemQuantity <= 1}
                     onClick={() => setItemQuantity(prev => Math.max(1, prev - 1))}
-                    className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-neutral-200/50 dark:hover:bg-neutral-800 text-sm font-bold bg-transparent border-none cursor-pointer text-neutral-600 dark:text-neutral-400"
+                    className={`w-7 h-7 flex items-center justify-center rounded-lg font-bold bg-transparent border-none cursor-pointer transition-colors ${
+                      itemQuantity <= 1 
+                        ? 'text-[#6B7280] cursor-not-allowed' 
+                        : 'text-[#F4B400] hover:bg-[#2A2A2A] hover:text-[#FFD54F]'
+                    }`}
                   >
                     -
                   </button>
-                  <span className="font-logo font-black text-xs text-neutral-850 dark:text-neutral-100">
+                  <span className="font-logo font-semibold text-base text-[#FFFFFF] px-2">
                     {itemQuantity}
                   </span>
                   <button 
                     type="button"
                     onClick={() => setItemQuantity(prev => prev + 1)}
-                    className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-neutral-200/50 dark:hover:bg-neutral-800 text-sm font-bold bg-transparent border-none cursor-pointer text-neutral-600 dark:text-neutral-400"
+                    className="w-7 h-7 flex items-center justify-center rounded-lg font-bold bg-transparent border-none cursor-pointer transition-colors text-[#F4B400] hover:bg-[#2A2A2A] hover:text-[#FFD54F]"
                   >
                     +
                   </button>
@@ -723,7 +728,7 @@ const ParcelSection: React.FC = () => {
                       
                       {/* Quantity controls & Remove */}
                       <div className="flex items-center gap-2">
-                        <div className="flex items-center border border-neutral-200 dark:border-neutral-800 rounded-xl bg-neutral-50 dark:bg-neutral-850 h-8 px-1">
+                        <div className="flex items-center border border-[#3A3A3A] rounded-xl bg-[#1F1F1F] h-8 px-1">
                           <button 
                             type="button"
                             onClick={() => {
@@ -738,11 +743,11 @@ const ParcelSection: React.FC = () => {
                                 return next;
                               });
                             }}
-                            className="w-6 h-6 flex items-center justify-center rounded-lg hover:bg-neutral-200/50 dark:hover:bg-neutral-800 text-xs font-bold bg-transparent border-none cursor-pointer text-neutral-600 dark:text-neutral-400"
+                            className="w-6 h-6 flex items-center justify-center rounded-lg text-xs font-bold bg-transparent border-none cursor-pointer transition-colors text-[#F4B400] hover:bg-[#2A2A2A] hover:text-[#FFD54F]"
                           >
                             -
                           </button>
-                          <span className="font-logo font-black text-xs text-neutral-855 dark:text-neutral-100 px-2 min-w-4 text-center">
+                          <span className="font-logo font-semibold text-base text-[#FFFFFF] px-2 min-w-4 text-center">
                             {cartItem.quantity}
                           </span>
                           <button 
@@ -756,7 +761,7 @@ const ParcelSection: React.FC = () => {
                                 return next;
                               });
                             }}
-                            className="w-6 h-6 flex items-center justify-center rounded-lg hover:bg-neutral-200/50 dark:hover:bg-neutral-800 text-xs font-bold bg-transparent border-none cursor-pointer text-neutral-600 dark:text-neutral-400"
+                            className="w-6 h-6 flex items-center justify-center rounded-lg text-xs font-bold bg-transparent border-none cursor-pointer transition-colors text-[#F4B400] hover:bg-[#2A2A2A] hover:text-[#FFD54F]"
                           >
                             +
                           </button>
