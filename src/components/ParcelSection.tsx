@@ -79,6 +79,7 @@ const ParcelSection: React.FC = () => {
   const [deliveryLon, setDeliveryLon] = React.useState<number | undefined>(undefined);
   const [isLocating, setIsLocating] = React.useState(false);
   const [showSuccessModal, setShowSuccessModal] = React.useState(false);
+  const [whatsappLink, setWhatsappLink] = React.useState('');
 
   // Address validation errors
   const [houseNoError, setHouseNoError] = React.useState('');
@@ -265,6 +266,46 @@ const ParcelSection: React.FC = () => {
         setTrackingOrderId(orderId);
         localStorage.setItem('svd_active_takeaway_order_id', orderId);
         
+        // Build manual WhatsApp link before clearing form states
+        const itemsText = takeawayCart.map(c => `• ${c.name}${c.customization ? ' (' + c.customization + ')' : ''} ×${c.quantity}`).join('\n\n');
+        const orderTimeStr = new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' });
+        
+        const rawMessage = `🍽️ NEW TAKEAWAY ORDER
+
+Order ID:
+${orderId}
+
+Customer Name:
+${customerName.trim()}
+
+Phone:
+${customerPhone.trim()}
+
+Delivery Address:
+${fullAddress}
+
+Payment Mode:
+${paymentMethod}
+
+Ordered Items:
+${itemsText}
+
+Special Instructions:
+${orderNotes.trim() || 'None'}
+
+Grand Total:
+₹${subtotal}
+
+Order Time:
+${orderTimeStr}
+
+Restaurant:
+Sri Vijaya Durga Family Restaurant`;
+
+        const encodedMessage = encodeURIComponent(rawMessage);
+        const waLink = `https://wa.me/919966315544?text=${encodedMessage}`;
+        setWhatsappLink(waLink);
+
         // Show success modal and close checkout modal
         setShowSuccessModal(true);
         setIsCartOpen(false);
@@ -1217,12 +1258,12 @@ const ParcelSection: React.FC = () => {
             <div className="flex flex-col gap-2 pt-2">
               <button
                 onClick={() => {
-                  setShowSuccessModal(false);
-                  document.getElementById('live-order-tracker')?.scrollIntoView({ behavior: 'smooth' });
+                  window.open(whatsappLink, 'SVDTakeawayWhatsAppWindow');
                 }}
-                className="w-full py-3 bg-[#F4B400] hover:bg-[#FFD54F] text-[#111827] font-logo font-extrabold text-xs rounded-xl shadow-md transition-all border-none cursor-pointer"
+                className="w-full py-3 bg-[#F4B400] hover:bg-[#FFD54F] text-[#111827] font-logo font-extrabold text-xs rounded-xl shadow-md transition-all border-none cursor-pointer flex items-center justify-center gap-1.5"
               >
-                View Order
+                <span>💬</span>
+                <span>Send Order on WhatsApp</span>
               </button>
               <div className="flex gap-2">
                 <button
