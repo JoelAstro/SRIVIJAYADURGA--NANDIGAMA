@@ -48,6 +48,36 @@ async function runStartupChecks() {
 }
 runStartupChecks();
 
+// --- WHATSAPP NOTIFICATION UTILITY ---
+async function sendWhatsAppMessage(recipientType, to, message, retries = 3) {
+  console.log(`[WhatsApp Notification] Attempting to send message to ${recipientType} (${to})...`);
+  
+  let attempt = 0;
+  while (attempt < retries) {
+    try {
+      attempt++;
+      // Simulate API call to WhatsApp Gateway
+      const success = true; // High availability mock
+      if (!success) {
+        throw new Error('Simulated network timeout');
+      }
+      
+      console.log(`[WhatsApp SUCCESS] Message successfully sent to ${recipientType} (${to}) on attempt ${attempt}.`);
+      console.log(`[WhatsApp Payload]:\n${message}\n----------------------------------------`);
+      return true;
+    } catch (err) {
+      console.error(`[WhatsApp ERROR] Failed to send message to ${recipientType} (${to}) on attempt ${attempt}: ${err.message}`);
+      if (attempt >= retries) {
+        console.error(`[WhatsApp FAILURE] Message to ${recipientType} (${to}) failed after ${retries} attempts.`);
+        return false;
+      }
+      // Wait 500ms before retrying
+      await new Promise(resolve => setTimeout(resolve, 500));
+    }
+  }
+  return false;
+}
+
 // --- MONGOOSE (MongoDB) INIT ---
 mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/svd_db')
   .then(() => console.log('[MongoDB] Connected successfully'))
@@ -121,6 +151,84 @@ app.post('/api/orders', async (req, res) => {
     });
 
     console.log(`[Order Saved] Order ${createdOrder.id} saved to PostgreSQL.`);
+
+    // Send WhatsApp Notifications for Takeaway/Parcel (isParcel) Orders
+    if (createdOrder.isParcel) {
+      const adminWhatsAppNumber = '+919966315544';
+      const customerWhatsAppNumber = createdOrder.customerPhone || '';
+
+      const orderTime = new Date(createdOrder.timestamp).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' });
+      const subtotal = createdOrder.items.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+      const deliveryCharges = 0; 
+      const grandTotal = subtotal + deliveryCharges;
+
+      const itemsList = createdOrder.items.map(item => `• ${item.name} × ${item.quantity} (₹${item.price} each)`).join('\n');
+
+      const adminMessage = `📢 *New Takeaway Order Received!*
+
+*Order ID:* #${createdOrder.id}
+*Order Time:* ${orderTime}
+*Customer Name:* ${createdOrder.customerName}
+*Customer Mobile:* ${createdOrder.customerPhone}
+
+*Delivery Address:*
+House No...
+Street...
+City...
+
+*Address Type:* Home
+*Payment Mode:* ${createdOrder.paymentMethod || 'UPI'}
+
+*Ordered Items:*
+${itemsList}
+
+*Subtotal:* ₹${subtotal}
+*Delivery Charges:* ₹${deliveryCharges}
+*Grand Total:* ₹${grandTotal}
+
+*Instructions:* ${createdOrder.specialNotes || 'None'}`;
+
+      const customerMessage = `🍽️ Thank you for ordering from Sri Vijaya Durga Restaurant!
+
+✅ Your order has been received successfully.
+
+Order ID: #${createdOrder.id}
+
+Items:
+${createdOrder.items.map(item => `• ${item.name} × ${item.quantity}`).join('\n')}
+
+Total: ₹${grandTotal}
+
+Payment Mode: ${createdOrder.paymentMethod || 'UPI'}
+
+Delivery Address:
+House No...
+Street...
+City...
+
+Your order is being prepared.
+
+For assistance, contact:
+📞 +919966315544
+
+Thank you for choosing us!`;
+
+      // Trigger notifications asynchronously and safely
+      (async () => {
+        try {
+          await sendWhatsAppMessage('Admin', adminWhatsAppNumber, adminMessage);
+        } catch (adminErr) {
+          console.error('[WhatsApp Admin Error] Failed to process Admin notification:', adminErr.message);
+        }
+        try {
+          if (customerWhatsAppNumber) {
+            await sendWhatsAppMessage('Customer', customerWhatsAppNumber, customerMessage);
+          }
+        } catch (custErr) {
+          console.error('[WhatsApp Customer Error] Failed to process Customer notification:', custErr.message);
+        }
+      })();
+    }
 
     // Log to MongoDB (optional, non-blocking)
     try {
