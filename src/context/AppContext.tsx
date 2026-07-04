@@ -1052,12 +1052,18 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       const savedOrder = await response.json();
       console.log('[placeParcelOrder] Order created successfully:', savedOrder);
       
-      setOrders(prev => {
-        if (prev.some(o => o.id === newOrderId)) return prev;
-        return [...prev, newOrder];
-      });
-      triggerSync();
-      return newOrderId;
+      if (savedOrder && savedOrder.success) {
+        const orderToSave = savedOrder.order || newOrder;
+        setOrders(prev => {
+          if (prev.some(o => o.id === orderToSave.id)) return prev;
+          return [...prev, orderToSave];
+        });
+        triggerSync();
+        return orderToSave.id;
+      } else {
+        const errorMsg = (savedOrder && savedOrder.error) ? savedOrder.error : 'Failed to create order on server';
+        throw new Error(errorMsg);
+      }
     } catch (err: any) {
       console.error('[placeParcelOrder] Connection or database error:', err);
       throw err;

@@ -117,7 +117,7 @@ app.post('/api/orders', async (req, res) => {
   const newOrder = req.body;
   
   if (!newOrder || !newOrder.id) {
-    return res.status(400).json({ error: 'Invalid order data' });
+    return res.status(400).json({ success: false, error: 'Invalid order data' });
   }
 
   // Instantly broadcast to all tabs first to guarantee real-time UI sync
@@ -156,23 +156,25 @@ app.post('/api/orders', async (req, res) => {
 
     console.log(`[Order Saved] Order ${createdOrder.id} saved to PostgreSQL.`);
 
-    // Send WhatsApp Notifications for Takeaway/Parcel (isParcel) Orders
-    if (createdOrder.isParcel) {
-      const adminWhatsAppNumber = '+919966315544';
-      const customerWhatsAppNumber = createdOrder.customerPhone || '';
+    // Perform post-order operations in a separate safe try-catch
+    try {
+      // Send WhatsApp Notifications for Takeaway/Parcel (isParcel) Orders
+      if (createdOrder.isParcel) {
+        const adminWhatsAppNumber = '+919966315544';
+        const customerWhatsAppNumber = createdOrder.customerPhone || '';
 
-      const orderTime = new Date(createdOrder.timestamp).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' });
-      const subtotal = createdOrder.items.reduce((sum, item) => sum + (item.price * item.quantity), 0);
-      const deliveryCharges = 0; 
-      const grandTotal = subtotal + deliveryCharges;
+        const orderTime = new Date(createdOrder.timestamp).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' });
+        const subtotal = createdOrder.items.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+        const deliveryCharges = 0; 
+        const grandTotal = subtotal + deliveryCharges;
 
-      const itemsList = createdOrder.items.map(item => `• ${item.name} × ${item.quantity} (₹${item.price} each)`).join('\n');
+        const itemsList = createdOrder.items.map(item => `• ${item.name} × ${item.quantity} (₹${item.price} each)`).join('\n');
 
-      const mapsLink = (createdOrder.latitude && createdOrder.longitude)
-        ? `\n*Google Maps Location:* https://www.google.com/maps/search/?api=1&query=${createdOrder.latitude},${createdOrder.longitude}`
-        : '';
+        const mapsLink = (createdOrder.latitude && createdOrder.longitude)
+          ? `\n*Google Maps Location:* https://www.google.com/maps/search/?api=1&query=${createdOrder.latitude},${createdOrder.longitude}`
+          : '';
 
-      const adminMessage = `📢 *New Takeaway Order Received!*
+        const adminMessage = `📢 *New Takeaway Order Received!*
 
 *Order ID:* #${createdOrder.id}
 *Order Time:* ${orderTime}
@@ -194,7 +196,7 @@ ${itemsList}
 
 *Instructions:* ${createdOrder.specialNotes || 'None'}`;
 
-      const customerMessage = `🍽️ Thank you for ordering from Sri Vijaya Durga Restaurant!
+        const customerMessage = `🍽️ Thank you for ordering from Sri Vijaya Durga Restaurant!
 
 ✅ Your order has been received successfully.
 
@@ -217,39 +219,57 @@ For assistance, contact:
 
 Thank you for choosing us!`;
 
-      // Trigger notifications asynchronously and safely
-      (async () => {
-        try {
-          await sendWhatsAppMessage('Admin', adminWhatsAppNumber, adminMessage);
-        } catch (adminErr) {
-          console.error('[WhatsApp Admin Error] Failed to process Admin notification:', adminErr.message);
-        }
-        try {
-          if (customerWhatsAppNumber) {
-            await sendWhatsAppMessage('Customer', customerWhatsAppNumber, customerMessage);
+        // Trigger notifications asynchronously and safely
+        (async () => {
+          try {
+            await sendWhatsAppMessage('Admin', adminWhatsAppNumber, adminMessage);
+          } catch (adminErr) {
+            console.error('[WhatsApp Admin Error] Failed to process Admin notification:', adminErr.message);
           }
-        } catch (custErr) {
-          console.error('[WhatsApp Customer Error] Failed to process Customer notification:', custErr.message);
-        }
-      })();
+          try {
+            if (customerWhatsAppNumber) {
+              await sendWhatsAppMessage('Customer', customerWhatsAppNumber, customerMessage);
+            }
+          } catch (custErr) {
+            console.error('[WhatsApp Customer Error] Failed to process Customer notification:', custErr.message);
+          }
+        })();
+      }
+
+      // Log to MongoDB (optional, non-blocking)
+      try {
+        await ActivityLog.create({
+          id: 'ACT-' + Date.now(),
+          action: 'ORDER_CREATED',
+          details: { orderId: createdOrder.id, tableNo: createdOrder.tableNo }
+        });
+      } catch (mongoErr) {
+        console.warn('[MongoDB Warning] Failed to log activity to MongoDB:', mongoErr.message);
+      }
+    } catch (postErr) {
+      console.error('[Warning] Post-order notification/logging failed:', postErr);
     }
 
-    // Log to MongoDB (optional, non-blocking)
-    try {
-      await ActivityLog.create({
-        id: 'ACT-' + Date.now(),
-        action: 'ORDER_CREATED',
-        details: { orderId: createdOrder.id, tableNo: createdOrder.tableNo }
-      });
-    } catch (mongoErr) {
-      console.warn('[MongoDB Warning] Failed to log activity to MongoDB:', mongoErr.message);
-    }
-
-    res.status(201).json({ message: 'Order created', order: newOrder });
+    // Return the response as requested
+    res.status(201).json({
+      success: true,
+      orderId: createdOrder.id,
+      order: {
+        ...createdOrder,
+        items: createdOrder.items.map(i => ({
+          id: i.menuItemId,
+          name: i.name,
+          price: i.price,
+          quantity: i.quantity,
+          isAdditional: i.isAdditional,
+          addedAt: i.addedAt
+        }))
+      }
+    });
 
   } catch (err) {
     console.error('[Error] POST /api/orders failed database execution:', err);
-    res.status(500).json({ error: 'Database execution failed: ' + err.message });
+    res.status(500).json({ success: false, error: 'Database execution failed: ' + err.message });
   }
 });
 

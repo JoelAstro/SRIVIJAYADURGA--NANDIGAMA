@@ -80,6 +80,7 @@ const ParcelSection: React.FC = () => {
   const [isLocating, setIsLocating] = React.useState(false);
   const [showSuccessModal, setShowSuccessModal] = React.useState(false);
   const [whatsappLink, setWhatsappLink] = React.useState('');
+  const [showTrackingModal, setShowTrackingModal] = React.useState(false);
 
   // Address validation errors
   const [houseNoError, setHouseNoError] = React.useState('');
@@ -137,7 +138,30 @@ const ParcelSection: React.FC = () => {
   }, [takeawayCart]);
 
   // Sync state with localStorage if active order is completed
-  const trackedOrder = orders.find(o => o.id === trackingOrderId);
+  const activeTrackingId = trackingOrderId || localStorage.getItem('svd_active_takeaway_order_id');
+  const trackedOrder = orders.find(o => o.id === activeTrackingId);
+
+  const getTrackingStatusText = (status: string) => {
+    switch (status) {
+      case 'NEW':
+      case 'PLACED':
+        return '✅ Order Received';
+      case 'ACCEPTED':
+        return '➡ Accepted by Kitchen';
+      case 'PREPARING':
+        return '➡ Preparing';
+      case 'READY':
+        return '➡ Ready';
+      case 'COMPLETED':
+      case 'PICKED_UP':
+      case 'PAID':
+        return '➡ Completed';
+      case 'CANCELLED':
+        return '❌ Cancelled';
+      default:
+        return '🟡 Order Received';
+    }
+  };
 
   const subtotal = takeawayCart.reduce((sum, c) => sum + c.price * c.quantity, 0);
 
@@ -1243,14 +1267,18 @@ Sri Vijaya Durga Family Restaurant`;
               </p>
             </div>
 
-            <div className="bg-neutral-50 dark:bg-[#252525] border border-neutral-200/50 dark:border-[#333333] rounded-2xl p-4 space-y-2 text-xs">
+            <div className="bg-neutral-50 dark:bg-[#252525] border border-neutral-200/50 dark:border-[#333333] rounded-2xl p-4 space-y-2 text-xs text-left">
               <div className="flex justify-between text-neutral-500 dark:text-neutral-400">
                 <span>Order ID:</span>
-                <span className="font-extrabold text-neutral-800 dark:text-neutral-100 font-mono">{successOrderId}</span>
+                <span className="font-extrabold text-neutral-855 dark:text-neutral-100 font-mono">{successOrderId}</span>
               </div>
               <div className="flex justify-between text-neutral-500 dark:text-neutral-400">
-                <span>Est. Preparation Time:</span>
+                <span>Estimated Preparation Time:</span>
                 <span className="font-bold text-[#F4B400]">20–30 Minutes</span>
+              </div>
+              <div className="flex justify-between text-neutral-500 dark:text-neutral-400 border-t border-neutral-250/20 dark:border-neutral-700/25 pt-1.5 mt-1.5">
+                <span>Current Status:</span>
+                <span className="font-bold text-amber-500">🟡 Order Received</span>
               </div>
             </div>
 
@@ -1258,25 +1286,39 @@ Sri Vijaya Durga Family Restaurant`;
             <div className="flex flex-col gap-2 pt-2">
               <button
                 onClick={() => {
-                  window.open(whatsappLink, 'SVDTakeawayWhatsAppWindow');
+                  setShowSuccessModal(false);
+                  setShowTrackingModal(true);
                 }}
                 className="w-full py-3 bg-[#F4B400] hover:bg-[#FFD54F] text-[#111827] font-logo font-extrabold text-xs rounded-xl shadow-md transition-all border-none cursor-pointer flex items-center justify-center gap-1.5"
               >
-                <span>💬</span>
+                <span>📦</span>
+                <span>Track Order</span>
+              </button>
+
+              <button
+                onClick={() => {
+                  window.open(whatsappLink, 'SVDTakeawayWhatsAppWindow');
+                }}
+                className="w-full py-3 bg-emerald-600 hover:bg-emerald-700 text-white font-logo font-extrabold text-xs rounded-xl shadow-md transition-all border-none cursor-pointer flex items-center justify-center gap-1.5"
+              >
+                <span>📲</span>
                 <span>Send Order on WhatsApp</span>
               </button>
+
               <div className="flex gap-2">
                 <button
                   onClick={() => setShowSuccessModal(false)}
-                  className="flex-1 py-3 bg-[#1F1F1F] hover:bg-[#2A2A2A] text-white border border-[#3A3A3A] font-logo font-bold text-xs rounded-xl transition-all cursor-pointer"
+                  className="flex-1 py-3 bg-[#1F1F1F] hover:bg-[#2A2A2A] text-white border border-[#3A3A3A] font-logo font-bold text-xs rounded-xl transition-all cursor-pointer flex items-center justify-center gap-1"
                 >
-                  Continue Ordering
+                  <span>🛒</span>
+                  <span>Continue Ordering</span>
                 </button>
                 <button
                   onClick={() => setShowSuccessModal(false)}
-                  className="flex-1 py-3 bg-transparent hover:bg-neutral-100 dark:hover:bg-neutral-800 text-neutral-500 dark:text-neutral-400 border border-neutral-200 dark:border-neutral-700 font-logo font-bold text-xs rounded-xl transition-all cursor-pointer"
+                  className="flex-1 py-3 bg-transparent hover:bg-neutral-100 dark:hover:bg-neutral-800 text-neutral-500 dark:text-neutral-400 border border-neutral-200 dark:border-neutral-700 font-logo font-bold text-xs rounded-xl transition-all cursor-pointer flex items-center justify-center gap-1"
                 >
-                  Close
+                  <span>❌</span>
+                  <span>Close</span>
                 </button>
               </div>
             </div>
@@ -1343,6 +1385,162 @@ Sri Vijaya Durga Family Restaurant`;
           <span className="bg-red-650 dark:bg-maroon text-white dark:text-saffron text-xs font-black w-5 h-5 rounded-full flex items-center justify-center">
             {takeawayCart.reduce((sum, c) => sum + c.quantity, 0)}
           </span>
+        </button>
+      )}
+
+      {/* Order Tracking Modal */}
+      {showTrackingModal && activeTrackingId && (
+        <div className="fixed inset-0 bg-neutral-900/60 dark:bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-fade-in">
+          <div className="bg-white dark:bg-[#1E1E1E] rounded-3xl p-6 max-w-md w-full space-y-5 shadow-2xl border border-neutral-200 dark:border-neutral-850 animate-scale-in max-h-[85vh] overflow-y-auto">
+            {/* Header */}
+            <div className="flex justify-between items-center border-b border-neutral-100 dark:border-neutral-800 pb-3">
+              <div>
+                <span className="text-[9px] font-black px-2 py-0.5 rounded-md bg-maroon/10 text-maroon dark:bg-saffron/10 dark:text-saffron uppercase tracking-widest font-logo">
+                  📦 Takeaway Order Tracking
+                </span>
+                <h3 className="font-logo font-extrabold text-sm text-neutral-850 dark:text-neutral-100 mt-1">
+                  Order ID: {activeTrackingId}
+                </h3>
+              </div>
+              <button 
+                onClick={() => setShowTrackingModal(false)}
+                className="p-1.5 rounded-full hover:bg-neutral-100 dark:hover:bg-neutral-800 text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-200 transition-all border-none bg-transparent cursor-pointer font-bold"
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Live Status Tracker Banner */}
+            {trackedOrder ? (
+              <div className="bg-neutral-50 dark:bg-[#252525] border border-neutral-200/50 dark:border-[#333333] p-4 rounded-2xl space-y-3">
+                <div className="flex justify-between items-center">
+                  <span className="text-[10px] font-bold text-neutral-450 uppercase">Current Status</span>
+                  <span className={`px-2.5 py-1 rounded-full text-xs font-black font-logo ${
+                    trackedOrder.status === 'CANCELLED' 
+                      ? 'bg-red-100 text-red-800 dark:bg-red-950/40 dark:text-red-400'
+                      : trackedOrder.status === 'READY'
+                      ? 'bg-emerald-100 text-emerald-850 dark:bg-emerald-950/40 dark:text-emerald-400 animate-pulse'
+                      : 'bg-saffron/20 text-maroon dark:text-saffron'
+                  }`}>
+                    {getTrackingStatusText(trackedOrder.status)}
+                  </span>
+                </div>
+                
+                {/* Visual steps indicator */}
+                <div className="relative pt-2 pb-1">
+                  <div className="absolute top-1/2 left-0 right-0 h-0.5 bg-neutral-200 dark:bg-neutral-800 -translate-y-1/2"></div>
+                  <div 
+                    className="absolute top-1/2 left-0 h-0.5 bg-gradient-to-r from-maroon to-saffron -translate-y-1/2 transition-all duration-500"
+                    style={{
+                      width: `${
+                        trackedOrder.status === 'CANCELLED' ? 0 :
+                        (trackedOrder.status === 'NEW' || trackedOrder.status === 'PLACED') ? 10 :
+                        trackedOrder.status === 'ACCEPTED' ? 35 :
+                        trackedOrder.status === 'PREPARING' ? 60 :
+                        trackedOrder.status === 'READY' ? 85 : 100
+                      }%`
+                    }}
+                  ></div>
+                  <div className="flex justify-between items-center relative z-10">
+                    {['Received', 'Accepted', 'Preparing', 'Ready', 'Completed'].map((stepLabel, idx) => {
+                      const stepMapping = ['NEW', 'ACCEPTED', 'PREPARING', 'READY', 'COMPLETED'];
+                      const currentIdx = stepMapping.indexOf(trackedOrder.status);
+                      const isPast = idx < currentIdx;
+                      const isCurrent = idx === currentIdx;
+                      
+                      return (
+                        <div key={idx} className="flex flex-col items-center gap-1">
+                          <div className={`w-5 h-5 rounded-full flex items-center justify-center border text-[9px] font-black ${
+                            isPast 
+                              ? 'bg-maroon dark:bg-saffron text-white dark:text-maroon border-maroon dark:border-saffron'
+                              : isCurrent
+                              ? 'bg-white dark:bg-bg-dark text-maroon dark:text-saffron border-maroon dark:border-saffron scale-110 shadow-md ring-2 ring-maroon/10 dark:ring-saffron/10'
+                              : 'bg-neutral-100 dark:bg-neutral-800 text-neutral-400 border-neutral-200 dark:border-neutral-700'
+                          }`}>
+                            {idx + 1}
+                          </div>
+                          <span className={`text-[8px] font-bold ${isCurrent ? 'text-maroon dark:text-saffron font-black' : 'text-neutral-400'}`}>
+                            {stepLabel}
+                          </span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <div className="bg-amber-50 dark:bg-amber-950/20 border border-amber-200/50 dark:border-amber-900/30 p-4 rounded-2xl text-xs text-amber-800 dark:text-amber-400 text-center font-medium">
+                ⏳ Live connection syncing with kitchen... Status will update shortly.
+              </div>
+            )}
+
+            {/* Customer & Address Details */}
+            <div className="border border-neutral-200/40 dark:border-neutral-800/40 rounded-2xl p-4 space-y-2.5 text-xs">
+              <span className="text-[9px] font-black uppercase text-neutral-400 tracking-wider block border-b border-neutral-150/40 dark:border-neutral-800/40 pb-1">
+                Customer Details
+              </span>
+              <div className="grid grid-cols-2 gap-y-2">
+                <span className="text-neutral-500">Customer Name:</span>
+                <span className="font-semibold text-neutral-800 dark:text-neutral-250 text-right">{trackedOrder?.customerName || 'Customer'}</span>
+                
+                <span className="text-neutral-500">Mobile Number:</span>
+                <span className="font-semibold text-neutral-800 dark:text-neutral-250 text-right">{trackedOrder?.customerPhone || 'N/A'}</span>
+                
+                <span className="text-neutral-500">Address Type:</span>
+                <span className="font-semibold text-neutral-800 dark:text-neutral-250 text-right">{trackedOrder?.addressType || 'Home'}</span>
+                
+                <span className="text-neutral-500">Delivery Address:</span>
+                <span className="font-semibold text-neutral-800 dark:text-neutral-250 text-right line-clamp-2">{trackedOrder?.deliveryAddress || 'N/A'}</span>
+
+                <span className="text-neutral-500">Payment Mode:</span>
+                <span className="font-semibold text-neutral-800 dark:text-neutral-250 text-right">{trackedOrder?.paymentMethod || 'UPI'}</span>
+
+                <span className="text-neutral-500">Est. Preparation Time:</span>
+                <span className="font-bold text-[#F4B400] text-right">20–30 Minutes</span>
+              </div>
+            </div>
+
+            {/* Items Summary */}
+            <div className="border border-neutral-200/40 dark:border-neutral-800/40 rounded-2xl p-4 space-y-2.5 text-xs">
+              <span className="text-[9px] font-black uppercase text-neutral-400 tracking-wider block border-b border-neutral-150/40 dark:border-neutral-800/40 pb-1">
+                Ordered Dishes
+              </span>
+              <ul className="space-y-1.5">
+                {trackedOrder?.items.map((item, idx) => (
+                  <li key={idx} className="flex justify-between items-center text-neutral-700 dark:text-neutral-355">
+                    <span>{item.name} &times; {item.quantity}</span>
+                    <span className="font-bold">₹{item.price * item.quantity}</span>
+                  </li>
+                ))}
+              </ul>
+              <div className="flex justify-between items-center border-t border-neutral-100 dark:border-neutral-800/40 pt-2 mt-2 font-bold text-neutral-850 dark:text-neutral-200">
+                <span>Total Amount:</span>
+                <span className="text-maroon dark:text-saffron font-black text-sm">
+                  ₹{trackedOrder?.items.reduce((sum, item) => sum + (item.price * item.quantity), 0) || 0}
+                </span>
+              </div>
+            </div>
+
+            {/* Close Button */}
+            <button
+              onClick={() => setShowTrackingModal(false)}
+              className="w-full py-3 bg-[#1F1F1F] hover:bg-[#2A2A2A] text-white font-logo font-bold text-xs rounded-xl transition-all cursor-pointer border-none"
+            >
+              Close Tracker
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Floating Order Tracking Reopener Button */}
+      {activeTrackingId && (
+        <button
+          onClick={() => setShowTrackingModal(true)}
+          className="fixed bottom-6 left-6 z-40 bg-[#F4B400] hover:bg-[#FFD54F] text-[#111827] p-4 rounded-full shadow-2xl flex items-center gap-2 hover:scale-105 active:scale-95 transition-all border-none cursor-pointer"
+          title="Track Latest Takeaway Order"
+        >
+          <span>📦</span>
+          <span className="text-xs font-black uppercase tracking-wider hidden sm:inline">Track Order</span>
         </button>
       )}
 
