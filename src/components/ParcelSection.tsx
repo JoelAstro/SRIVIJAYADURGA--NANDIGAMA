@@ -66,6 +66,70 @@ const ParcelSection: React.FC = () => {
     localStorage.getItem('svd_active_takeaway_order_id')
   );
 
+  // Delivery Address Fields & States
+  const [deliveryHouseNo, setDeliveryHouseNo] = React.useState('');
+  const [deliveryStreet, setDeliveryStreet] = React.useState('');
+  const [deliveryLandmark, setDeliveryLandmark] = React.useState('');
+  const [deliveryCity, setDeliveryCity] = React.useState('');
+  const [deliveryState, setDeliveryState] = React.useState('');
+  const [deliveryPincode, setDeliveryPincode] = React.useState('');
+  const [deliveryAddressType, setDeliveryAddressType] = React.useState<'Home' | 'Work' | 'Other'>('Home');
+  const [deliveryCustomAddressType, setDeliveryCustomAddressType] = React.useState('');
+  const [deliveryLat, setDeliveryLat] = React.useState<number | undefined>(undefined);
+  const [deliveryLon, setDeliveryLon] = React.useState<number | undefined>(undefined);
+  const [isLocating, setIsLocating] = React.useState(false);
+
+  // Address validation errors
+  const [houseNoError, setHouseNoError] = React.useState('');
+  const [streetError, setStreetError] = React.useState('');
+  const [cityError, setCityError] = React.useState('');
+  const [stateError, setStateError] = React.useState('');
+  const [pincodeError, setPincodeError] = React.useState('');
+
+  const handleUseCurrentLocation = () => {
+    if (!navigator.geolocation) {
+      alert("Geolocation is not supported by your browser.");
+      return;
+    }
+    setIsLocating(true);
+    navigator.geolocation.getCurrentPosition(
+      async (position) => {
+        const { latitude, longitude } = position.coords;
+        setDeliveryLat(latitude);
+        setDeliveryLon(longitude);
+
+        try {
+          const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}`);
+          if (res.ok) {
+            const data = await res.json();
+            const addr = data.address || {};
+            setDeliveryHouseNo(addr.house_number || addr.building || '');
+            setDeliveryStreet(addr.road || addr.suburb || addr.neighbourhood || '');
+            setDeliveryCity(addr.city || addr.town || addr.village || '');
+            setDeliveryState(addr.state || '');
+            setDeliveryPincode(addr.postcode || '');
+            
+            setHouseNoError('');
+            setStreetError('');
+            setCityError('');
+            setStateError('');
+            setPincodeError('');
+          }
+        } catch (err) {
+          console.error("Reverse geocoding failed", err);
+        } finally {
+          setIsLocating(false);
+        }
+      },
+      (error) => {
+        console.warn("Location permission denied or error:", error);
+        alert("Location access denied or unavailable. Please enter your address manually.");
+        setIsLocating(false);
+      },
+      { enableHighAccuracy: true, timeout: 10000 }
+    );
+  };
+
   React.useEffect(() => {
     localStorage.setItem('svd_takeaway_cart', JSON.stringify(takeawayCart));
   }, [takeawayCart]);
@@ -117,6 +181,11 @@ const ParcelSection: React.FC = () => {
     // Clear validation states
     setNameError('');
     setPhoneError('');
+    setHouseNoError('');
+    setStreetError('');
+    setCityError('');
+    setStateError('');
+    setPincodeError('');
     setErrorMsg('');
 
     let hasValidationError = false;
@@ -133,6 +202,26 @@ const ParcelSection: React.FC = () => {
       setPhoneError('Mobile number must be exactly 10 digits.');
       hasValidationError = true;
     }
+    if (!deliveryHouseNo.trim()) {
+      setHouseNoError('House/Flat No. is required.');
+      hasValidationError = true;
+    }
+    if (!deliveryStreet.trim()) {
+      setStreetError('Street / Area is required.');
+      hasValidationError = true;
+    }
+    if (!deliveryCity.trim()) {
+      setCityError('City is required.');
+      hasValidationError = true;
+    }
+    if (!deliveryState.trim()) {
+      setStateError('State is required.');
+      hasValidationError = true;
+    }
+    if (!deliveryPincode.trim()) {
+      setPincodeError('Pincode is required.');
+      hasValidationError = true;
+    }
     if (!paymentMethod) {
       setErrorMsg('Payment mode must be selected.');
       hasValidationError = true;
@@ -146,6 +235,9 @@ const ParcelSection: React.FC = () => {
     setIsSubmitting(true);
     console.log('[Takeaway Modal Submit] Validation passed. Submitting order...');
 
+    const fullAddress = `${deliveryHouseNo.trim()}, ${deliveryStreet.trim()}${deliveryLandmark.trim() ? ', ' + deliveryLandmark.trim() : ''}, ${deliveryCity.trim()}, ${deliveryState.trim()} - ${deliveryPincode.trim()}`;
+    const addressType = deliveryAddressType === 'Other' ? (deliveryCustomAddressType.trim() || 'Other') : deliveryAddressType;
+
     try {
       const orderId = await placeParcelOrder(
         takeawayCart.map(c => ({ 
@@ -157,7 +249,13 @@ const ParcelSection: React.FC = () => {
         customerName.trim(),
         customerPhone.trim(),
         orderNotes.trim(),
-        paymentMethod
+        paymentMethod,
+        {
+          address: fullAddress,
+          addressType,
+          latitude: deliveryLat,
+          longitude: deliveryLon
+        }
       );
 
       if (orderId) {
@@ -176,6 +274,16 @@ const ParcelSection: React.FC = () => {
         setOrderNotes('');
         setNameError('');
         setPhoneError('');
+        setDeliveryHouseNo('');
+        setDeliveryStreet('');
+        setDeliveryLandmark('');
+        setDeliveryCity('');
+        setDeliveryState('');
+        setDeliveryPincode('');
+        setDeliveryAddressType('Home');
+        setDeliveryCustomAddressType('');
+        setDeliveryLat(undefined);
+        setDeliveryLon(undefined);
         setTakeawayCart([]);
       } else {
         setErrorMsg('Unable to send order to kitchen. Please try again.');
@@ -870,6 +978,180 @@ const ParcelSection: React.FC = () => {
                           <p className="text-[10px] text-red-500 font-bold mt-0.5 ml-1 animate-pulse">
                             ⚠️ {phoneError}
                           </p>
+                        )}
+                      </div>
+
+                      {/* Delivery Address Section */}
+                      <div className="border-t border-neutral-100 dark:border-neutral-850 pt-3 space-y-3">
+                        <div className="flex justify-between items-center">
+                          <label className="text-[10px] font-black uppercase tracking-wider text-neutral-500 dark:text-[#D1D5DB]">
+                            Delivery Location *
+                          </label>
+                          <button
+                            type="button"
+                            onClick={handleUseCurrentLocation}
+                            disabled={isLocating}
+                            className="px-2.5 py-1 text-[10px] font-bold bg-[#1F1F1F] text-[#F4B400] hover:bg-[#2A2A2A] hover:text-[#FFD54F] border border-[#3A3A3A] rounded-lg cursor-pointer flex items-center gap-1 transition-all disabled:opacity-50"
+                          >
+                            <span>📍</span>
+                            <span>{isLocating ? 'Locating...' : 'Use Current Location'}</span>
+                          </button>
+                        </div>
+
+                        {/* House/Flat No. & Street/Area */}
+                        <div className="grid grid-cols-2 gap-3">
+                          <div className="space-y-1">
+                            <label className="text-[9px] font-bold uppercase tracking-wider text-neutral-450 dark:text-[#D1D5DB]">House/Flat No. *</label>
+                            <input 
+                              type="text" 
+                              required
+                              value={deliveryHouseNo}
+                              onChange={e => {
+                                setDeliveryHouseNo(e.target.value);
+                                if (e.target.value.trim()) setHouseNoError('');
+                              }}
+                              placeholder="e.g. Flat 101, H.No"
+                              className="w-full px-3 py-2.5 text-xs rounded-xl border border-[#D1D5DB] bg-white text-[#111827] placeholder-[#6B7280] dark:bg-neutral-900 dark:text-white dark:placeholder-[#9CA3AF] focus:outline-none focus:border-[#F4B400] focus:ring-2 focus:ring-[#F4B400]/20 caret-[#F4B400]"
+                            />
+                            {houseNoError && (
+                              <p className="text-[10px] text-red-500 font-bold mt-0.5 ml-1">
+                                ⚠️ {houseNoError}
+                              </p>
+                            )}
+                          </div>
+
+                          <div className="space-y-1">
+                            <label className="text-[9px] font-bold uppercase tracking-wider text-neutral-450 dark:text-[#D1D5DB]">Street / Area *</label>
+                            <input 
+                              type="text" 
+                              required
+                              value={deliveryStreet}
+                              onChange={e => {
+                                setDeliveryStreet(e.target.value);
+                                if (e.target.value.trim()) setStreetError('');
+                              }}
+                              placeholder="e.g. Nethaji Nagar"
+                              className="w-full px-3 py-2.5 text-xs rounded-xl border border-[#D1D5DB] bg-white text-[#111827] placeholder-[#6B7280] dark:bg-neutral-900 dark:text-white dark:placeholder-[#9CA3AF] focus:outline-none focus:border-[#F4B400] focus:ring-2 focus:ring-[#F4B400]/20 caret-[#F4B400]"
+                            />
+                            {streetError && (
+                              <p className="text-[10px] text-red-500 font-bold mt-0.5 ml-1">
+                                ⚠️ {streetError}
+                              </p>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Landmark & Pincode */}
+                        <div className="grid grid-cols-2 gap-3">
+                          <div className="space-y-1">
+                            <label className="text-[9px] font-bold uppercase tracking-wider text-neutral-450 dark:text-[#D1D5DB]">Landmark (Optional)</label>
+                            <input 
+                              type="text" 
+                              value={deliveryLandmark}
+                              onChange={e => setDeliveryLandmark(e.target.value)}
+                              placeholder="e.g. Near Temple"
+                              className="w-full px-3 py-2.5 text-xs rounded-xl border border-[#D1D5DB] bg-white text-[#111827] placeholder-[#6B7280] dark:bg-neutral-900 dark:text-white dark:placeholder-[#9CA3AF] focus:outline-none focus:border-[#F4B400] focus:ring-2 focus:ring-[#F4B400]/20 caret-[#F4B400]"
+                            />
+                          </div>
+
+                          <div className="space-y-1">
+                            <label className="text-[9px] font-bold uppercase tracking-wider text-neutral-450 dark:text-[#D1D5DB]">Pincode *</label>
+                            <input 
+                              type="text" 
+                              required
+                              value={deliveryPincode}
+                              onChange={e => {
+                                setDeliveryPincode(e.target.value);
+                                if (e.target.value.trim()) setPincodeError('');
+                              }}
+                              placeholder="e.g. 521185"
+                              className="w-full px-3 py-2.5 text-xs rounded-xl border border-[#D1D5DB] bg-white text-[#111827] placeholder-[#6B7280] dark:bg-neutral-900 dark:text-white dark:placeholder-[#9CA3AF] focus:outline-none focus:border-[#F4B400] focus:ring-2 focus:ring-[#F4B400]/20 caret-[#F4B400]"
+                            />
+                            {pincodeError && (
+                              <p className="text-[10px] text-red-500 font-bold mt-0.5 ml-1">
+                                ⚠️ {pincodeError}
+                              </p>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* City & State */}
+                        <div className="grid grid-cols-2 gap-3">
+                          <div className="space-y-1">
+                            <label className="text-[9px] font-bold uppercase tracking-wider text-neutral-450 dark:text-[#D1D5DB]">City *</label>
+                            <input 
+                              type="text" 
+                              required
+                              value={deliveryCity}
+                              onChange={e => {
+                                setDeliveryCity(e.target.value);
+                                if (e.target.value.trim()) setCityError('');
+                              }}
+                              placeholder="e.g. Nandigama"
+                              className="w-full px-3 py-2.5 text-xs rounded-xl border border-[#D1D5DB] bg-white text-[#111827] placeholder-[#6B7280] dark:bg-neutral-900 dark:text-white dark:placeholder-[#9CA3AF] focus:outline-none focus:border-[#F4B400] focus:ring-2 focus:ring-[#F4B400]/20 caret-[#F4B400]"
+                            />
+                            {cityError && (
+                              <p className="text-[10px] text-red-500 font-bold mt-0.5 ml-1">
+                                ⚠️ {cityError}
+                              </p>
+                            )}
+                          </div>
+
+                          <div className="space-y-1">
+                            <label className="text-[9px] font-bold uppercase tracking-wider text-neutral-450 dark:text-[#D1D5DB]">State *</label>
+                            <input 
+                              type="text" 
+                              required
+                              value={deliveryState}
+                              onChange={e => {
+                                setDeliveryState(e.target.value);
+                                if (e.target.value.trim()) setStateError('');
+                              }}
+                              placeholder="e.g. Andhra Pradesh"
+                              className="w-full px-3 py-2.5 text-xs rounded-xl border border-[#D1D5DB] bg-white text-[#111827] placeholder-[#6B7280] dark:bg-neutral-900 dark:text-white dark:placeholder-[#9CA3AF] focus:outline-none focus:border-[#F4B400] focus:ring-2 focus:ring-[#F4B400]/20 caret-[#F4B400]"
+                            />
+                            {stateError && (
+                              <p className="text-[10px] text-red-500 font-bold mt-0.5 ml-1">
+                                ⚠️ {stateError}
+                              </p>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Address Type */}
+                        <div className="space-y-1">
+                          <label className="text-[9px] font-bold uppercase tracking-wider text-neutral-450 dark:text-[#D1D5DB]">Address Type</label>
+                          <div className="flex gap-2">
+                            {(['Home', 'Work', 'Other'] as const).map(type => (
+                              <button
+                                key={type}
+                                type="button"
+                                onClick={() => setDeliveryAddressType(type)}
+                                className={`flex-1 py-1.5 text-xs font-bold rounded-xl border transition-all cursor-pointer ${
+                                  deliveryAddressType === type
+                                    ? 'bg-[#1F1F1F] text-[#F4B400] border-[#F4B400]'
+                                    : 'bg-white text-[#111827] border-[#D1D5DB] dark:bg-neutral-900 dark:text-white dark:border-neutral-800'
+                                }`}
+                              >
+                                {type}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+
+                        {/* Custom Address Type textbox */}
+                        {deliveryAddressType === 'Other' && (
+                          <div className="space-y-1 animate-fade-in">
+                            <label className="text-[9px] font-bold uppercase tracking-wider text-neutral-450 dark:text-[#D1D5DB]">Custom Address Name *</label>
+                            <input 
+                              type="text" 
+                              required
+                              value={deliveryCustomAddressType}
+                              onChange={e => setDeliveryCustomAddressType(e.target.value)}
+                              placeholder="e.g. Friend's House, Office"
+                              className="w-full px-3 py-2.5 text-xs rounded-xl border border-[#D1D5DB] bg-white text-[#111827] placeholder-[#6B7280] dark:bg-neutral-900 dark:text-white dark:placeholder-[#9CA3AF] focus:outline-none focus:border-[#F4B400] focus:ring-2 focus:ring-[#F4B400]/20 caret-[#F4B400]"
+                            />
+                          </div>
                         )}
                       </div>
 

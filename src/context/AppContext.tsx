@@ -34,6 +34,10 @@ export interface Order {
   specialNotes?: string;
   pickupTime?: string;
   paymentMethod?: string;
+  deliveryAddress?: string;
+  addressType?: string;
+  latitude?: number;
+  longitude?: number;
 }
 
 export interface Invoice {
@@ -119,7 +123,19 @@ interface AppContextType {
   updateParcelMenu: (newMenu: any[]) => void;
   bgImage: string;
   setBgImage: (img: string) => void;
-  placeParcelOrder: (items: any[], customerName: string, customerPhone: string, specialNotes?: string, paymentMethod?: string) => Promise<string>;
+  placeParcelOrder: (
+    items: any[],
+    customerName: string,
+    customerPhone: string,
+    specialNotes?: string,
+    paymentMethod?: string,
+    deliveryDetails?: {
+      address: string;
+      addressType: string;
+      latitude?: number;
+      longitude?: number;
+    }
+  ) => Promise<string>;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -982,10 +998,16 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     customerName: string,
     customerPhone: string,
     specialNotes?: string,
-    paymentMethod?: string
+    paymentMethod?: string,
+    deliveryDetails?: {
+      address: string;
+      addressType: string;
+      latitude?: number;
+      longitude?: number;
+    }
   ) => {
     const newOrderId = 'ORD-' + Math.random().toString(36).substr(2, 9).toUpperCase();
-    const newOrder: Order = {
+    const newOrder: Order & { deliveryAddress?: string; addressType?: string; latitude?: number; longitude?: number } = {
       id: newOrderId,
       tableNo: 'Takeaway',
       customerName,
@@ -1000,7 +1022,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       timestamp: Date.now(),
       isParcel: true,
       specialNotes,
-      paymentMethod
+      paymentMethod,
+      deliveryAddress: deliveryDetails?.address,
+      addressType: deliveryDetails?.addressType,
+      latitude: deliveryDetails?.latitude,
+      longitude: deliveryDetails?.longitude
     };
 
     console.log('[placeParcelOrder] Attempting to place order:', newOrder);

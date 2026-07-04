@@ -33,18 +33,22 @@ model MenuItem {
 }
 
 model Order {
-  id            String      @id
-  tableNo       String
-  customerName  String
-  customerPhone String
-  status        String
-  timestamp     Float
-  isParcel      Boolean
-  specialNotes  String?
-  pickupTime    String?
-  paymentMethod String?
-  items         OrderItem[]
-  invoice       Invoice?
+  id              String      @id
+  tableNo         String
+  customerName    String
+  customerPhone   String
+  status          String
+  timestamp       Float
+  isParcel        Boolean
+  specialNotes    String?
+  pickupTime      String?
+  paymentMethod   String?
+  deliveryAddress String?
+  addressType     String?
+  latitude        Float?
+  longitude       Float?
+  items           OrderItem[]
+  invoice         Invoice?
 }
 
 model OrderItem {

@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { useApp } from '../context/AppContext';
 import AuthGate from '../components/AuthGate';
-import { Flame, Clock, User, Phone, CheckCircle2, Play, LogOut, Info, XCircle } from 'lucide-react';
+import { Flame, Clock, User, Phone, CheckCircle2, Play, LogOut, Info, XCircle, MapPin } from 'lucide-react';
 
 const KitchenDashboard: React.FC = () => {
   const { orders, updateOrderStatus, kitchenSession, logout } = useApp();
@@ -221,6 +221,15 @@ const KitchenDashboard: React.FC = () => {
                           <span className="px-1.5 py-0.5 bg-neutral-100 dark:bg-neutral-850 rounded text-neutral-700 dark:text-neutral-300">
                             {order.paymentMethod === 'UPI' ? '📱 UPI' : order.paymentMethod === 'Cash' ? '💵 Cash' : '💳 Card'}
                           </span>
+                        </div>
+                      )}
+                      {order.isParcel && order.deliveryAddress && (
+                        <div className="flex items-start gap-1.5 pt-1 mt-1 border-t border-neutral-100 dark:border-neutral-800/40">
+                          <MapPin className="w-3.5 h-3.5 mt-0.5 text-neutral-400" />
+                          <div>
+                            <span className="font-bold">Address ({order.addressType || 'Home'}): </span>
+                            <span>{order.deliveryAddress}</span>
+                          </div>
                         </div>
                       )}
                     </div>

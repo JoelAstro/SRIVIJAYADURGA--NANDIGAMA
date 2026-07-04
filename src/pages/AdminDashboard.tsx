@@ -1059,9 +1059,27 @@ const AdminDashboard: React.FC = () => {
                                 </div>
                                 
                                 <div className="text-[10px] text-neutral-400 font-semibold space-y-1">
-                                  <div>Order ID: <span className="font-mono text-neutral-600 dark:text-neutral-350">{order.id}</span></div>
+                                  <div>Order ID: <span className="font-mono text-neutral-600 dark:text-neutral-355">{order.id}</span></div>
                                   <div>Guest Name: <span className="text-neutral-700 dark:text-neutral-250 font-bold">{order.customerName}</span></div>
                                   <div>Contact: <span className="text-neutral-700 dark:text-neutral-250">{order.customerPhone}</span></div>
+                                  {order.deliveryAddress && (
+                                    <div className="pt-1 border-t border-neutral-100 dark:border-neutral-800 mt-1 space-y-0.5 text-[10px]">
+                                      <div>Address Type: <span className="font-bold text-neutral-700 dark:text-neutral-250">{order.addressType || 'Home'}</span></div>
+                                      <div>Address: <span className="text-neutral-700 dark:text-neutral-250">{order.deliveryAddress}</span></div>
+                                      {order.latitude && order.longitude && (
+                                        <div className="pt-0.5">
+                                          <a 
+                                            href={`https://www.google.com/maps/search/?api=1&query=${order.latitude},${order.longitude}`}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            className="inline-flex items-center gap-0.5 text-blue-500 hover:underline font-bold"
+                                          >
+                                            📍 Open in Google Maps
+                                          </a>
+                                        </div>
+                                      )}
+                                    </div>
+                                  )}
                                 </div>
 
                                 <div className="space-y-1">
@@ -1420,6 +1438,24 @@ const AdminDashboard: React.FC = () => {
                             </div>
                             {order.paymentMethod && (
                               <div>Pay Mode: <span className="px-1.5 py-0.5 bg-neutral-100 dark:bg-neutral-800 rounded font-bold text-neutral-700 dark:text-neutral-300">{order.paymentMethod}</span></div>
+                            )}
+                            {order.deliveryAddress && (
+                              <div className="pt-1 border-t border-neutral-100 dark:border-neutral-800 mt-1 space-y-0.5">
+                                <div>Address Type: <span className="font-bold text-neutral-700 dark:text-neutral-250">{order.addressType || 'Home'}</span></div>
+                                <div>Address: <span className="text-neutral-700 dark:text-neutral-250">{order.deliveryAddress}</span></div>
+                                {order.latitude && order.longitude && (
+                                  <div className="pt-0.5">
+                                    <a 
+                                      href={`https://www.google.com/maps/search/?api=1&query=${order.latitude},${order.longitude}`}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      className="inline-flex items-center gap-0.5 text-blue-500 hover:underline font-bold"
+                                    >
+                                      📍 Open in Google Maps
+                                    </a>
+                                  </div>
+                                )}
+                              </div>
                             )}
                           </div>
 

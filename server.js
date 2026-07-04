@@ -136,6 +136,10 @@ app.post('/api/orders', async (req, res) => {
         specialNotes: newOrder.specialNotes,
         pickupTime: newOrder.pickupTime,
         paymentMethod: newOrder.paymentMethod,
+        deliveryAddress: newOrder.deliveryAddress || null,
+        addressType: newOrder.addressType || null,
+        latitude: newOrder.latitude !== undefined && newOrder.latitude !== null ? parseFloat(newOrder.latitude) : null,
+        longitude: newOrder.longitude !== undefined && newOrder.longitude !== null ? parseFloat(newOrder.longitude) : null,
         items: {
           create: newOrder.items.map(i => ({
             menuItemId: i.id,
@@ -164,6 +168,10 @@ app.post('/api/orders', async (req, res) => {
 
       const itemsList = createdOrder.items.map(item => `• ${item.name} × ${item.quantity} (₹${item.price} each)`).join('\n');
 
+      const mapsLink = (createdOrder.latitude && createdOrder.longitude)
+        ? `\n*Google Maps Location:* https://www.google.com/maps/search/?api=1&query=${createdOrder.latitude},${createdOrder.longitude}`
+        : '';
+
       const adminMessage = `📢 *New Takeaway Order Received!*
 
 *Order ID:* #${createdOrder.id}
@@ -172,11 +180,9 @@ app.post('/api/orders', async (req, res) => {
 *Customer Mobile:* ${createdOrder.customerPhone}
 
 *Delivery Address:*
-House No...
-Street...
-City...
+${createdOrder.deliveryAddress || 'Not Provided'}
 
-*Address Type:* Home
+*Address Type:* ${createdOrder.addressType || 'Home'}${mapsLink}
 *Payment Mode:* ${createdOrder.paymentMethod || 'UPI'}
 
 *Ordered Items:*
@@ -202,9 +208,7 @@ Total: ₹${grandTotal}
 Payment Mode: ${createdOrder.paymentMethod || 'UPI'}
 
 Delivery Address:
-House No...
-Street...
-City...
+${createdOrder.deliveryAddress || 'Not Provided'}
 
 Your order is being prepared.
 
