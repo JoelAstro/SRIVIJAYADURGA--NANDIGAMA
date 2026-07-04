@@ -35,8 +35,8 @@ const Clock: React.FC<{ className?: string }> = ({ className }) => (
 );
 
 const ParcelSection: React.FC = () => {
-  const { parcelItems, setBgImage, orders, placeParcelOrder } = useApp();
-  const [selectedPack, setSelectedPack] = useState<'ALL' | 'Couple Pack' | 'Family Pack' | 'Bucket Biryani'>('ALL');
+  const { menuItems, setBgImage, orders, placeParcelOrder } = useApp();
+  const [selectedPack, setSelectedPack] = useState<string>('ALL');
 
   // Modal & Form State
   const [selectedItem, setSelectedItem] = React.useState<any | null>(null);
@@ -75,8 +75,26 @@ const ParcelSection: React.FC = () => {
 
   const subtotal = takeawayCart.reduce((sum, c) => sum + c.price * c.quantity, 0);
 
+  const categoryOrder = [
+    'Veg Biryani', 'Non-Veg Biryani', 'Veg Fried Rice', 'Non-Veg Fried Rice',
+    'Veg Starters', 'Non-Veg Starters', 'Sea Food Starters', 'Egg Items',
+    'Tandoori Non-Veg', 'Tandoori Veg', 'Couple Pack', 'Family Pack', 'Bucket Biryani'
+  ];
+
+  const uniqueCategories = Array.from(new Set(menuItems.map(item => item.category)));
+  const sortedCategories = uniqueCategories.sort((a, b) => {
+    const idxA = categoryOrder.indexOf(a);
+    const idxB = categoryOrder.indexOf(b);
+    if (idxA === -1 && idxB === -1) return a.localeCompare(b);
+    if (idxA === -1) return 1;
+    if (idxB === -1) return -1;
+    return idxA - idxB;
+  });
+
+  const categories = ['ALL', ...sortedCategories];
+
   // Filter items
-  const filteredParcels = parcelItems.filter(item => {
+  const filteredParcels = menuItems.filter(item => {
     return selectedPack === 'ALL' || item.category === selectedPack;
   });
 
@@ -439,17 +457,17 @@ const ParcelSection: React.FC = () => {
 
       {/* Category selector */}
       <div className="flex flex-wrap gap-2.5 justify-center relative z-10">
-        {(['ALL', 'Couple Pack', 'Family Pack', 'Bucket Biryani'] as const).map(pack => (
+        {categories.map(cat => (
           <button 
-            key={pack}
-            onClick={() => setSelectedPack(pack)}
+            key={cat}
+            onClick={() => setSelectedPack(cat)}
             className={`px-5 py-2.5 rounded-xl text-xs font-bold whitespace-nowrap border transition-all duration-200 ${
-              selectedPack === pack
+              selectedPack === cat
                 ? 'bg-maroon text-white border-maroon dark:bg-saffron dark:text-maroon dark:border-saffron shadow-md scale-102'
                 : 'bg-white dark:bg-neutral-900 text-neutral-600 dark:text-neutral-400 border-neutral-200 dark:border-neutral-800 hover:border-maroon/20 dark:hover:border-saffron/30 hover:bg-neutral-50 dark:hover:bg-neutral-850'
             }`}
           >
-            {pack === 'ALL' ? 'Show All Packs' : pack}
+            {cat === 'ALL' ? 'Show All' : cat}
           </button>
         ))}
       </div>
@@ -515,7 +533,7 @@ const ParcelSection: React.FC = () => {
                       onClick={() => handleAddTakeawayItem(item)}
                       className="flex items-center gap-1 px-4 py-2 bg-maroon dark:bg-saffron text-white dark:text-maroon font-logo font-bold text-xs rounded-xl shadow-sm hover:scale-103 hover:shadow-md active:scale-97 transition-all text-center border-none cursor-pointer"
                     >
-                      Place Takeaway Order
+                      Order
                     </button>
                   )}
                 </div>
