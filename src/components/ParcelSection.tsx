@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useApp } from '../context/AppContext';
-import { Truck, ShieldCheck, Flame, X, ShoppingBag, Loader2 } from 'lucide-react';
+import { Truck, ShieldCheck, Flame, X, ShoppingBag, Loader2, Trash2 } from 'lucide-react';
 import ImageWithFallback from './ImageWithFallback';
 
 const PhoneIcon: React.FC = () => (
@@ -39,24 +39,36 @@ const ParcelSection: React.FC = () => {
   const [selectedPack, setSelectedPack] = useState<'ALL' | 'Couple Pack' | 'Family Pack' | 'Bucket Biryani'>('ALL');
 
   // Modal & Form State
-  const [selectedItem, setSelectedItem] = useState<any | null>(null);
-  const [takeawayCart, setTakeawayCart] = useState<any[]>([]);
-  const [customerName, setCustomerName] = useState('');
-  const [customerPhone, setCustomerPhone] = useState('');
-  const [specialNotes, setSpecialNotes] = useState('');
-  const [paymentMethod, setPaymentMethod] = useState<'UPI' | 'Cash' | 'Card'>('UPI');
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [selectedItem, setSelectedItem] = React.useState<any | null>(null);
+  const [itemQuantity, setItemQuantity] = React.useState(1);
+  const [itemNotes, setItemNotes] = React.useState('');
+  
+  const [isCartOpen, setIsCartOpen] = React.useState(false);
+  const [takeawayCart, setTakeawayCart] = React.useState<any[]>(() => {
+    const stored = localStorage.getItem('svd_takeaway_cart');
+    return stored ? JSON.parse(stored) : [];
+  });
+
+  const [customerName, setCustomerName] = React.useState('');
+  const [customerPhone, setCustomerPhone] = React.useState('');
+  const [orderNotes, setOrderNotes] = React.useState('');
+  const [paymentMethod, setPaymentMethod] = React.useState<'UPI' | 'Cash' | 'Card'>('UPI');
+  const [isSubmitting, setIsSubmitting] = React.useState(false);
   
   // Error & Status States
-  const [errorMsg, setErrorMsg] = useState('');
-  const [nameError, setNameError] = useState('');
-  const [phoneError, setPhoneError] = useState('');
-  const [successToast, setSuccessToast] = useState<string | null>(null);
+  const [errorMsg, setErrorMsg] = React.useState('');
+  const [nameError, setNameError] = React.useState('');
+  const [phoneError, setPhoneError] = React.useState('');
+  const [successToast, setSuccessToast] = React.useState<string | null>(null);
   
-  const [successOrderId, setSuccessOrderId] = useState<string | null>(null);
-  const [trackingOrderId, setTrackingOrderId] = useState<string | null>(() => 
+  const [successOrderId, setSuccessOrderId] = React.useState<string | null>(null);
+  const [trackingOrderId, setTrackingOrderId] = React.useState<string | null>(() => 
     localStorage.getItem('svd_active_takeaway_order_id')
   );
+
+  React.useEffect(() => {
+    localStorage.setItem('svd_takeaway_cart', JSON.stringify(takeawayCart));
+  }, [takeawayCart]);
 
   // Sync state with localStorage if active order is completed
   const trackedOrder = orders.find(o => o.id === trackingOrderId);
@@ -105,10 +117,15 @@ const ParcelSection: React.FC = () => {
 
     try {
       const orderId = await placeParcelOrder(
-        takeawayCart.map(c => ({ id: c.id, name: c.name, price: c.price, quantity: c.quantity })),
+        takeawayCart.map(c => ({ 
+          id: c.itemId, 
+          name: c.customization ? `${c.name} (${c.customization})` : c.name, 
+          price: c.price, 
+          quantity: c.quantity 
+        })),
         customerName.trim(),
         customerPhone.trim(),
-        specialNotes.trim(),
+        orderNotes.trim(),
         paymentMethod
       );
 
@@ -125,13 +142,10 @@ const ParcelSection: React.FC = () => {
         // Clear form and cart states
         setCustomerName('');
         setCustomerPhone('');
-        setSpecialNotes('');
+        setOrderNotes('');
         setNameError('');
         setPhoneError('');
         setTakeawayCart([]);
-
-        // Close the modal popup
-        setSelectedItem(null);
       } else {
         setErrorMsg('Unable to send order to kitchen. Please try again.');
       }
@@ -146,21 +160,46 @@ const ParcelSection: React.FC = () => {
   };
 
   const handleAddTakeawayItem = (item: any) => {
-    setTakeawayCart(prev => {
-      const idx = prev.findIndex(c => c.id === item.id);
-      if (idx > -1) {
-        const next = [...prev];
-        next[idx] = { ...next[idx], quantity: next[idx].quantity + 1 };
-        return next;
-      }
-      return [...prev, { ...item, quantity: 1 }];
-    });
-
     setSelectedItem(item);
+    setItemQuantity(1);
+    setItemNotes('');
     setErrorMsg('');
     setNameError('');
     setPhoneError('');
     setSuccessOrderId(null);
+  };
+
+  const handleAddToCart = () => {
+    if (itemQuantity < 1) return;
+    setTakeawayCart(prev => {
+      // Find if an item with the same itemId AND same customization already exists
+      const existingIdx = prev.findIndex(
+        c => c.itemId === selectedItem.id && c.customization.trim() === itemNotes.trim()
+      );
+      if (existingIdx > -1) {
+        const next = [...prev];
+        next[existingIdx] = {
+          ...next[existingIdx],
+          quantity: next[existingIdx].quantity + itemQuantity
+        };
+        return next;
+      }
+      // Otherwise, add as a new cart item
+      const cartId = `${selectedItem.id}-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`;
+      return [
+        ...prev,
+        {
+          id: cartId,
+          itemId: selectedItem.id,
+          name: selectedItem.name,
+          price: selectedItem.price,
+          image: selectedItem.image,
+          quantity: itemQuantity,
+          customization: itemNotes.trim()
+        }
+      ];
+    });
+    setSelectedItem(null); // Close customization popup
   };
 
   const getStatusStep = (status: string) => {
@@ -486,7 +525,7 @@ const ParcelSection: React.FC = () => {
         })}
       </div>
 
-      {/* Takeaway Order Modal */}
+      {/* Customization Modal */}
       {selectedItem && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div 
@@ -497,10 +536,10 @@ const ParcelSection: React.FC = () => {
             <div className="p-5 border-b border-neutral-100 dark:border-neutral-850 flex justify-between items-center">
               <div>
                 <span className="text-[9px] font-black px-2 py-0.5 rounded-md bg-maroon/10 text-maroon dark:bg-saffron/10 dark:text-saffron uppercase tracking-widest font-logo">
-                  🥡 Takeaway Order
+                  🥡 Customize Dish
                 </span>
                 <h3 className="font-logo font-extrabold text-base text-neutral-850 dark:text-neutral-100 mt-1">
-                  Customize Details
+                  {selectedItem.name}
                 </h3>
               </div>
               <button 
@@ -511,7 +550,110 @@ const ParcelSection: React.FC = () => {
               </button>
             </div>
 
-            {/* Modal Body / Form */}
+            {/* Modal Body */}
+            <div className="p-5 space-y-4">
+              <div className="flex gap-3 bg-neutral-50 dark:bg-neutral-850/30 border border-neutral-100 dark:border-neutral-800/40 p-3 rounded-2xl">
+                <div className="w-14 h-14 rounded-xl overflow-hidden bg-neutral-100 dark:bg-neutral-800 flex-shrink-0">
+                  <ImageWithFallback src={selectedItem.image} alt={selectedItem.name} className="w-full h-full object-cover" />
+                </div>
+                <div className="space-y-1">
+                  <h5 className="font-logo font-bold text-xs text-neutral-800 dark:text-neutral-255 line-clamp-1">
+                    {selectedItem.name}
+                  </h5>
+                  <span className="font-logo font-extrabold text-xs text-maroon dark:text-saffron">
+                    ₹{selectedItem.price}
+                  </span>
+                </div>
+              </div>
+
+              {/* Quantity Selector */}
+              <div className="space-y-1">
+                <label className="text-[10px] font-black uppercase tracking-wider text-neutral-500 dark:text-neutral-400">Quantity</label>
+                <div className="flex items-center justify-between border border-neutral-200 dark:border-neutral-800 rounded-xl bg-neutral-50 dark:bg-neutral-850 h-[38px] px-1">
+                  <button 
+                    type="button"
+                    onClick={() => setItemQuantity(prev => Math.max(1, prev - 1))}
+                    className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-neutral-200/50 dark:hover:bg-neutral-800 text-sm font-bold bg-transparent border-none cursor-pointer text-neutral-600 dark:text-neutral-400"
+                  >
+                    -
+                  </button>
+                  <span className="font-logo font-black text-xs text-neutral-850 dark:text-neutral-100">
+                    {itemQuantity}
+                  </span>
+                  <button 
+                    type="button"
+                    onClick={() => setItemQuantity(prev => prev + 1)}
+                    className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-neutral-200/50 dark:hover:bg-neutral-800 text-sm font-bold bg-transparent border-none cursor-pointer text-neutral-600 dark:text-neutral-400"
+                  >
+                    +
+                  </button>
+                </div>
+              </div>
+
+              {/* Special Instructions */}
+              <div className="space-y-1">
+                <label className="text-[10px] font-black uppercase tracking-wider text-neutral-500 dark:text-neutral-400">Special Instructions / Customization (Optional)</label>
+                <input 
+                  type="text" 
+                  value={itemNotes}
+                  onChange={e => setItemNotes(e.target.value)}
+                  placeholder="e.g. Extra spicy, no onions, double masala"
+                  className="w-full px-3 py-2 text-xs rounded-xl bg-neutral-50 dark:bg-neutral-850 border border-neutral-200 dark:border-neutral-800 text-neutral-800 dark:text-neutral-100 focus:outline-none focus:border-maroon dark:focus:border-saffron"
+                />
+              </div>
+            </div>
+
+            {/* Modal Actions */}
+            <div className="p-5 border-t border-neutral-100 dark:border-neutral-850 flex gap-3">
+              <button
+                type="button"
+                onClick={() => setSelectedItem(null)}
+                className="flex-1 py-3 border border-neutral-200 dark:border-neutral-800 rounded-xl font-logo font-bold text-xs text-neutral-500 dark:text-neutral-450 hover:bg-neutral-50 dark:hover:bg-neutral-850 transition-all bg-transparent cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleAddToCart}
+                className="flex-1 py-3 bg-maroon dark:bg-saffron text-white dark:text-maroon font-logo font-black uppercase text-xs rounded-xl shadow-md hover:scale-101 active:scale-99 transition-all flex items-center justify-center gap-1.5 border-none cursor-pointer"
+              >
+                <ShoppingBag className="w-3.5 h-3.5" />
+                <span>Add to Cart</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Takeaway Cart Modal */}
+      {isCartOpen && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div 
+            className="bg-white dark:bg-bg-dark border border-neutral-200 dark:border-neutral-800 rounded-3xl max-w-md w-full shadow-2xl overflow-hidden glass animate-fade-in"
+            onClick={e => e.stopPropagation()}
+          >
+            {/* Modal Header */}
+            <div className="p-5 border-b border-neutral-100 dark:border-neutral-850 flex justify-between items-center">
+              <div>
+                <span className="text-[9px] font-black px-2 py-0.5 rounded-md bg-maroon/10 text-maroon dark:bg-saffron/10 dark:text-saffron uppercase tracking-widest font-logo">
+                  🥡 Takeaway Cart
+                </span>
+                <h3 className="font-logo font-extrabold text-base text-neutral-850 dark:text-neutral-100 mt-1">
+                  Review &amp; Checkout
+                </h3>
+              </div>
+              <button 
+                onClick={() => {
+                  setIsCartOpen(false);
+                  setSuccessOrderId(null);
+                }}
+                className="p-1.5 rounded-full hover:bg-neutral-100 dark:hover:bg-neutral-800 text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-200 transition-all border-none bg-transparent cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Modal Body */}
             {successOrderId ? (
               <div className="p-6 text-center space-y-4">
                 <div className="w-12 h-12 rounded-full bg-emerald-100 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400 flex items-center justify-center mx-auto text-xl animate-pulse">
@@ -533,7 +675,7 @@ const ParcelSection: React.FC = () => {
                   <div className="flex justify-between text-neutral-500 gap-4 text-left">
                     <span>Items</span>
                     <span className="font-bold text-neutral-800 dark:text-neutral-200 text-right">
-                      {orders.find(o => o.id === successOrderId)?.items.map(i => `${i.name} (x${i.quantity})`).join(', ') || (selectedItem ? `${selectedItem.name}` : '')}
+                      {orders.find(o => o.id === successOrderId)?.items.map(i => `${i.name} (x${i.quantity})`).join(', ')}
                     </span>
                   </div>
                   <div className="flex justify-between text-neutral-500">
@@ -542,16 +684,19 @@ const ParcelSection: React.FC = () => {
                   </div>
                 </div>
                 <button
-                  onClick={() => setSelectedItem(null)}
+                  onClick={() => {
+                    setIsCartOpen(false);
+                    setSuccessOrderId(null);
+                  }}
                   className="w-full py-3 bg-maroon dark:bg-saffron text-white dark:text-maroon font-logo font-bold text-xs rounded-xl shadow-sm hover:scale-101 active:scale-99 transition-all border-none cursor-pointer"
                 >
                   Track in Main Page
                 </button>
               </div>
             ) : (
-              <form onSubmit={handleSubmitOrder} className="p-5 space-y-4">
+              <form onSubmit={handleSubmitOrder} className="p-5 space-y-4 max-h-[60vh] overflow-y-auto">
                 {/* Cart Items List */}
-                <div className="space-y-3 max-h-48 overflow-y-auto pr-1">
+                <div className="space-y-3 pr-1">
                   {takeawayCart.map(cartItem => (
                     <div 
                       key={cartItem.id} 
@@ -562,175 +707,198 @@ const ParcelSection: React.FC = () => {
                           <ImageWithFallback src={cartItem.image} alt={cartItem.name} className="w-full h-full object-cover" />
                         </div>
                         <div className="space-y-0.5">
-                          <h5 className="font-logo font-bold text-xs text-neutral-800 dark:text-neutral-200 line-clamp-1">
+                          <h5 className="font-logo font-bold text-xs text-neutral-850 dark:text-neutral-200 line-clamp-1">
                             {cartItem.name}
                           </h5>
+                          {cartItem.customization && (
+                            <p className="text-[10px] text-neutral-500 dark:text-neutral-400 italic">
+                              Notes: "{cartItem.customization}"
+                            </p>
+                          )}
                           <span className="font-logo font-extrabold text-[11px] text-maroon dark:text-saffron">
                             ₹{cartItem.price}
                           </span>
                         </div>
                       </div>
                       
-                      {/* Quantity controls for this specific item */}
-                      <div className="flex items-center border border-neutral-200 dark:border-neutral-800 rounded-xl bg-neutral-50 dark:bg-neutral-850 h-8 px-1">
-                        <button 
+                      {/* Quantity controls & Remove */}
+                      <div className="flex items-center gap-2">
+                        <div className="flex items-center border border-neutral-200 dark:border-neutral-800 rounded-xl bg-neutral-50 dark:bg-neutral-850 h-8 px-1">
+                          <button 
+                            type="button"
+                            onClick={() => {
+                              setTakeawayCart(prev => {
+                                const idx = prev.findIndex(c => c.id === cartItem.id);
+                                if (idx === -1) return prev;
+                                const next = [...prev];
+                                if (next[idx].quantity <= 1) {
+                                  return prev.filter(c => c.id !== cartItem.id);
+                                }
+                                next[idx] = { ...next[idx], quantity: next[idx].quantity - 1 };
+                                return next;
+                              });
+                            }}
+                            className="w-6 h-6 flex items-center justify-center rounded-lg hover:bg-neutral-200/50 dark:hover:bg-neutral-800 text-xs font-bold bg-transparent border-none cursor-pointer text-neutral-600 dark:text-neutral-400"
+                          >
+                            -
+                          </button>
+                          <span className="font-logo font-black text-xs text-neutral-855 dark:text-neutral-100 px-2 min-w-4 text-center">
+                            {cartItem.quantity}
+                          </span>
+                          <button 
+                            type="button"
+                            onClick={() => {
+                              setTakeawayCart(prev => {
+                                const idx = prev.findIndex(c => c.id === cartItem.id);
+                                if (idx === -1) return prev;
+                                const next = [...prev];
+                                next[idx] = { ...next[idx], quantity: next[idx].quantity + 1 };
+                                return next;
+                              });
+                            }}
+                            className="w-6 h-6 flex items-center justify-center rounded-lg hover:bg-neutral-200/50 dark:hover:bg-neutral-800 text-xs font-bold bg-transparent border-none cursor-pointer text-neutral-600 dark:text-neutral-400"
+                          >
+                            +
+                          </button>
+                        </div>
+
+                        {/* Trash Button */}
+                        <button
                           type="button"
                           onClick={() => {
-                            setTakeawayCart(prev => {
-                              const idx = prev.findIndex(c => c.id === cartItem.id);
-                              if (idx === -1) return prev;
-                              const next = [...prev];
-                              if (next[idx].quantity <= 1) {
-                                return prev.filter(c => c.id !== cartItem.id);
-                              }
-                              next[idx] = { ...next[idx], quantity: next[idx].quantity - 1 };
-                              return next;
-                            });
+                            setTakeawayCart(prev => prev.filter(c => c.id !== cartItem.id));
                           }}
-                          className="w-6 h-6 flex items-center justify-center rounded-lg hover:bg-neutral-200/50 dark:hover:bg-neutral-800 text-xs font-bold bg-transparent border-none cursor-pointer text-neutral-600 dark:text-neutral-400"
+                          className="p-1 text-red-500 hover:text-red-700 bg-transparent border-none cursor-pointer hover:scale-105 transition-all"
+                          title="Remove item"
                         >
-                          -
-                        </button>
-                        <span className="font-logo font-black text-xs text-neutral-850 dark:text-neutral-100 px-2 min-w-4 text-center">
-                          {cartItem.quantity}
-                        </span>
-                        <button 
-                          type="button"
-                          onClick={() => {
-                            setTakeawayCart(prev => {
-                              const idx = prev.findIndex(c => c.id === cartItem.id);
-                              if (idx === -1) return prev;
-                              const next = [...prev];
-                              next[idx] = { ...next[idx], quantity: next[idx].quantity + 1 };
-                              return next;
-                            });
-                          }}
-                          className="w-6 h-6 flex items-center justify-center rounded-lg hover:bg-neutral-200/50 dark:hover:bg-neutral-800 text-xs font-bold bg-transparent border-none cursor-pointer text-neutral-600 dark:text-neutral-400"
-                        >
-                          +
+                          <Trash2 className="w-4 h-4" />
                         </button>
                       </div>
                     </div>
                   ))}
                   {takeawayCart.length === 0 && (
-                    <p className="text-center text-xs text-neutral-500 py-4">
-                      Your takeaway cart is empty. Please add items.
+                    <p className="text-center text-xs text-neutral-500 py-6">
+                      Your takeaway cart is empty.
                     </p>
                   )}
                 </div>
 
-                {/* Error Banner */}
-                {errorMsg && (
-                  <div className="bg-red-50 dark:bg-red-950/20 border border-red-200/50 dark:border-red-900/30 p-2.5 rounded-xl text-center text-[10px] font-bold text-red-650 dark:text-red-400">
-                    {errorMsg}
-                  </div>
+                {takeawayCart.length > 0 && (
+                  <>
+                    {/* Error Banner */}
+                    {errorMsg && (
+                      <div className="bg-red-50 dark:bg-red-950/20 border border-red-200/50 dark:border-red-900/30 p-2.5 rounded-xl text-center text-[10px] font-bold text-red-650 dark:text-red-400">
+                        {errorMsg}
+                      </div>
+                    )}
+
+                    {/* Input Fields */}
+                    <div className="space-y-3 pt-2 border-t border-neutral-100 dark:border-neutral-850">
+                      <div className="space-y-1">
+                        <label className="text-[10px] font-black uppercase tracking-wider text-neutral-500 dark:text-neutral-400">Customer Name *</label>
+                        <input 
+                          type="text" 
+                          required
+                          value={customerName}
+                          onChange={e => {
+                            const val = e.target.value;
+                            setCustomerName(val);
+                            if (val.trim()) setNameError('');
+                          }}
+                          placeholder="Enter customer name"
+                          className="w-full px-3 py-2.5 text-xs rounded-xl bg-neutral-50 dark:bg-neutral-850 border border-neutral-200 dark:border-neutral-800 text-neutral-800 dark:text-neutral-100 focus:outline-none focus:border-maroon dark:focus:border-saffron"
+                        />
+                        {nameError && (
+                          <p className="text-[10px] text-red-500 font-bold mt-0.5 ml-1 animate-pulse">
+                            ⚠️ {nameError}
+                          </p>
+                        )}
+                      </div>
+
+                      <div className="space-y-1">
+                        <label className="text-[10px] font-black uppercase tracking-wider text-neutral-500 dark:text-neutral-400">Mobile Number *</label>
+                        <input 
+                          type="tel" 
+                          required
+                          maxLength={10}
+                          value={customerPhone}
+                          onChange={e => {
+                            const val = e.target.value.replace(/[^0-9]/g, '');
+                            setCustomerPhone(val);
+                            if (val.length === 10) setPhoneError('');
+                          }}
+                          placeholder="10-digit mobile number"
+                          className="w-full px-3 py-2.5 text-xs rounded-xl bg-neutral-50 dark:bg-neutral-850 border border-neutral-200 dark:border-neutral-800 text-neutral-800 dark:text-neutral-100 focus:outline-none focus:border-maroon dark:focus:border-saffron"
+                        />
+                        {phoneError && (
+                          <p className="text-[10px] text-red-500 font-bold mt-0.5 ml-1 animate-pulse">
+                            ⚠️ {phoneError}
+                          </p>
+                        )}
+                      </div>
+
+                      <div className="space-y-1">
+                        <label className="text-[10px] font-black uppercase tracking-wider text-neutral-500 dark:text-neutral-400">Payment Mode</label>
+                        <select 
+                          value={paymentMethod}
+                          onChange={e => setPaymentMethod(e.target.value as any)}
+                          className="w-full border border-neutral-200 dark:border-neutral-800 rounded-xl bg-neutral-50 dark:bg-neutral-850 h-[38px] text-xs px-2.5 text-neutral-850 dark:text-neutral-200 focus:outline-none focus:border-maroon dark:focus:border-saffron cursor-pointer"
+                        >
+                          <option value="UPI">UPI (Quick Scan)</option>
+                          <option value="Cash">Cash at Counter</option>
+                          <option value="Card">Card at Counter</option>
+                        </select>
+                      </div>
+
+                      <div className="space-y-1">
+                        <label className="text-[10px] font-black uppercase tracking-wider text-neutral-500 dark:text-neutral-400">Order Notes (Optional)</label>
+                        <input 
+                          type="text" 
+                          value={orderNotes}
+                          onChange={e => setOrderNotes(e.target.value)}
+                          placeholder="e.g. Extra spicy, no onions"
+                          className="w-full px-3 py-2 text-xs rounded-xl bg-neutral-50 dark:bg-neutral-850 border border-neutral-200 dark:border-neutral-800 text-neutral-800 dark:text-neutral-100 focus:outline-none focus:border-maroon dark:focus:border-saffron"
+                        />
+                      </div>
+                    </div>
+
+                    {/* Total Summary */}
+                    <div className="pt-3 border-t border-neutral-100 dark:border-neutral-850 flex justify-between items-center">
+                      <span className="text-[10px] font-bold text-neutral-400 uppercase">Subtotal</span>
+                      <span className="font-logo font-black text-base text-maroon dark:text-saffron bg-maroon/5 dark:bg-saffron/5 px-3 py-1 rounded-xl">
+                        ₹{subtotal}
+                      </span>
+                    </div>
+
+                    {/* Actions */}
+                    <div className="flex gap-3 pt-2">
+                      <button
+                        type="button"
+                        onClick={() => setIsCartOpen(false)}
+                        className="flex-1 py-3 border border-neutral-200 dark:border-neutral-800 rounded-xl font-logo font-bold text-xs text-neutral-500 dark:text-neutral-455 hover:bg-neutral-50 dark:hover:bg-neutral-855 transition-all bg-transparent cursor-pointer"
+                      >
+                        Close
+                      </button>
+                      <button
+                        type="submit"
+                        disabled={isSubmitting}
+                        className="flex-1 py-3 bg-maroon dark:bg-saffron text-white dark:text-maroon font-logo font-black uppercase text-xs rounded-xl shadow-md hover:scale-101 active:scale-99 transition-all flex items-center justify-center gap-1.5 border-none cursor-pointer disabled:opacity-50"
+                      >
+                        {isSubmitting ? (
+                          <>
+                            <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                            <span>Sending...</span>
+                          </>
+                        ) : (
+                          <>
+                            <ShoppingBag className="w-3.5 h-3.5" />
+                            <span>Send to Kitchen</span>
+                          </>
+                        )}
+                      </button>
+                    </div>
+                  </>
                 )}
-
-                {/* Input Fields */}
-                <div className="space-y-3">
-                  <div className="space-y-1">
-                    <label className="text-[10px] font-black uppercase tracking-wider text-neutral-500 dark:text-neutral-400">Customer Name *</label>
-                    <input 
-                      type="text" 
-                      required
-                      value={customerName}
-                      onChange={e => {
-                        const val = e.target.value;
-                        setCustomerName(val);
-                        if (val.trim()) setNameError('');
-                      }}
-                      placeholder="Enter customer name"
-                      className="w-full px-3 py-2.5 text-xs rounded-xl bg-neutral-50 dark:bg-neutral-850 border border-neutral-200 dark:border-neutral-800 text-neutral-800 dark:text-neutral-100 focus:outline-none focus:border-maroon dark:focus:border-saffron"
-                    />
-                    {nameError && (
-                      <p className="text-[10px] text-red-500 font-bold mt-0.5 ml-1 animate-pulse">
-                        ⚠️ {nameError}
-                      </p>
-                    )}
-                  </div>
-
-                  <div className="space-y-1">
-                    <label className="text-[10px] font-black uppercase tracking-wider text-neutral-500 dark:text-neutral-400">Mobile Number *</label>
-                    <input 
-                      type="tel" 
-                      required
-                      maxLength={10}
-                      value={customerPhone}
-                      onChange={e => {
-                        const val = e.target.value.replace(/[^0-9]/g, '');
-                        setCustomerPhone(val);
-                        if (val.length === 10) setPhoneError('');
-                      }}
-                      placeholder="10-digit mobile number"
-                      className="w-full px-3 py-2.5 text-xs rounded-xl bg-neutral-50 dark:bg-neutral-850 border border-neutral-200 dark:border-neutral-800 text-neutral-800 dark:text-neutral-100 focus:outline-none focus:border-maroon dark:focus:border-saffron"
-                    />
-                    {phoneError && (
-                      <p className="text-[10px] text-red-500 font-bold mt-0.5 ml-1 animate-pulse">
-                        ⚠️ {phoneError}
-                      </p>
-                    )}
-                  </div>
-
-                  <div className="space-y-1">
-                    <label className="text-[10px] font-black uppercase tracking-wider text-neutral-500 dark:text-neutral-400">Payment Mode</label>
-                    <select 
-                      value={paymentMethod}
-                      onChange={e => setPaymentMethod(e.target.value as any)}
-                      className="w-full border border-neutral-200 dark:border-neutral-800 rounded-xl bg-neutral-50 dark:bg-neutral-850 h-[38px] text-xs px-2.5 text-neutral-850 dark:text-neutral-200 focus:outline-none focus:border-maroon dark:focus:border-saffron cursor-pointer"
-                    >
-                      <option value="UPI">UPI (Quick Scan)</option>
-                      <option value="Cash">Cash at Counter</option>
-                      <option value="Card">Card at Counter</option>
-                    </select>
-                  </div>
-
-                  <div className="space-y-1">
-                    <label className="text-[10px] font-black uppercase tracking-wider text-neutral-500 dark:text-neutral-400">Order Notes (Optional)</label>
-                    <input 
-                      type="text" 
-                      value={specialNotes}
-                      onChange={e => setSpecialNotes(e.target.value)}
-                      placeholder="e.g. Extra spicy, no onions"
-                      className="w-full px-3 py-2 text-xs rounded-xl bg-neutral-50 dark:bg-neutral-850 border border-neutral-200 dark:border-neutral-800 text-neutral-800 dark:text-neutral-100 focus:outline-none focus:border-maroon dark:focus:border-saffron"
-                    />
-                  </div>
-                </div>
-
-                {/* Total Summary */}
-                <div className="pt-3 border-t border-neutral-100 dark:border-neutral-850 flex justify-between items-center">
-                  <span className="text-[10px] font-bold text-neutral-400 uppercase">Subtotal</span>
-                  <span className="font-logo font-black text-base text-maroon dark:text-saffron bg-maroon/5 dark:bg-saffron/5 px-3 py-1 rounded-xl">
-                    ₹{subtotal}
-                  </span>
-                </div>
-
-                {/* Actions */}
-                <div className="flex gap-3 pt-2">
-                  <button
-                    type="button"
-                    onClick={() => setSelectedItem(null)}
-                    className="flex-1 py-3 border border-neutral-200 dark:border-neutral-800 rounded-xl font-logo font-bold text-xs text-neutral-500 dark:text-neutral-450 hover:bg-neutral-50 dark:hover:bg-neutral-850 transition-all bg-transparent cursor-pointer"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    type="submit"
-                    disabled={isSubmitting}
-                    className="flex-1 py-3 bg-maroon dark:bg-saffron text-white dark:text-maroon font-logo font-black uppercase text-xs rounded-xl shadow-md hover:scale-101 active:scale-99 transition-all flex items-center justify-center gap-1.5 border-none cursor-pointer disabled:opacity-50"
-                  >
-                    {isSubmitting ? (
-                      <>
-                        <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                        <span>Sending...</span>
-                      </>
-                    ) : (
-                      <>
-                        <ShoppingBag className="w-3.5 h-3.5" />
-                        <span>Send to Kitchen</span>
-                      </>
-                    )}
-                  </button>
-                </div>
               </form>
             )}
           </div>
@@ -785,6 +953,19 @@ const ParcelSection: React.FC = () => {
           </a>
         </div>
       </div>
+
+      {/* Floating Takeaway Cart Button */}
+      {takeawayCart.length > 0 && (
+        <button
+          onClick={() => setIsCartOpen(true)}
+          className="fixed bottom-6 right-6 z-40 bg-maroon dark:bg-saffron text-white dark:text-maroon p-4 rounded-full shadow-2xl flex items-center gap-2 hover:scale-105 active:scale-95 transition-all border-none cursor-pointer"
+        >
+          <ShoppingBag className="w-6 h-6" />
+          <span className="bg-red-650 dark:bg-maroon text-white dark:text-saffron text-xs font-black w-5 h-5 rounded-full flex items-center justify-center">
+            {takeawayCart.reduce((sum, c) => sum + c.quantity, 0)}
+          </span>
+        </button>
+      )}
 
     </div>
   );
