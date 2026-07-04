@@ -122,12 +122,16 @@ app.post('/api/orders', async (req, res) => {
 
     console.log(`[Order Saved] Order ${createdOrder.id} saved to PostgreSQL.`);
 
-    // Log to MongoDB
-    await ActivityLog.create({
-      id: 'ACT-' + Date.now(),
-      action: 'ORDER_CREATED',
-      details: { orderId: createdOrder.id, tableNo: createdOrder.tableNo }
-    });
+    // Log to MongoDB (optional, non-blocking)
+    try {
+      await ActivityLog.create({
+        id: 'ACT-' + Date.now(),
+        action: 'ORDER_CREATED',
+        details: { orderId: createdOrder.id, tableNo: createdOrder.tableNo }
+      });
+    } catch (mongoErr) {
+      console.warn('[MongoDB Warning] Failed to log activity to MongoDB:', mongoErr.message);
+    }
 
     res.status(201).json({ message: 'Order created', order: newOrder });
 
@@ -183,24 +187,28 @@ app.put('/api/orders/:id', async (req, res) => {
 
     console.log(`[Database Response] Order ${orderId} updated in PostgreSQL.`);
 
-    // Log to MongoDB history if status changed
+    // Log to MongoDB history if status changed (optional, non-blocking)
     if (updates.status) {
-      await KitchenHistory.create({ orderId, status: updates.status });
-      
-      // If PAID, create notification in MongoDB
-      if (updates.status === 'PAID') {
-        const notifId = 'NTF-' + Math.random().toString(36).substr(2, 9).toUpperCase();
-        const notification = await Notification.create({
-          id: notifId,
-          orderId: orderId,
-          tableNo: updates.tableNo || 'N/A',
-          customerName: updates.customerName || 'Customer',
-          amount: updates.amount || 0, // In reality, we'd calculate or receive this
-          timestamp: Date.now()
-        });
+      try {
+        await KitchenHistory.create({ orderId, status: updates.status });
         
-        console.log(`[Realtime Events] Emitted new_notification for ${orderId}`);
-        io.emit('new_notification', notification);
+        // If PAID, create notification in MongoDB
+        if (updates.status === 'PAID') {
+          const notifId = 'NTF-' + Math.random().toString(36).substr(2, 9).toUpperCase();
+          const notification = await Notification.create({
+            id: notifId,
+            orderId: orderId,
+            tableNo: updates.tableNo || 'N/A',
+            customerName: updates.customerName || 'Customer',
+            amount: updates.amount || 0, // In reality, we'd calculate or receive this
+            timestamp: Date.now()
+          });
+          
+          console.log(`[Realtime Events] Emitted new_notification for ${orderId}`);
+          io.emit('new_notification', notification);
+        }
+      } catch (mongoErr) {
+        console.warn('[MongoDB Warning] Failed to log kitchen history or notification to MongoDB:', mongoErr.message);
       }
     }
 
