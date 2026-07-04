@@ -20,11 +20,22 @@ interface CustomerPortalProps {
 const CustomerPortal: React.FC<CustomerPortalProps> = ({ activeTab, setActiveTab }) => {
   const { 
     activeTable, orders, tables, 
-    upiId, addRating, settleBillAndReleaseTable 
+    upiId, addRating, settleBillAndReleaseTable,
+    cmsSettings 
   } = useApp();
 
   const [copied, setCopied] = useState(false);
   const [paymentSuccessData, setPaymentSuccessData] = useState<{ tableNo: string; amount: number } | null>(null);
+  const [showPopup, setShowPopup] = useState(false);
+
+  useEffect(() => {
+    if (cmsSettings?.popupEnabled) {
+      const dismissed = sessionStorage.getItem('svd_popup_dismissed');
+      if (!dismissed) {
+        setShowPopup(true);
+      }
+    }
+  }, [cmsSettings?.popupEnabled]);
   
   // Rating states
   const [ratingFood, setRatingFood] = useState(5);
@@ -473,44 +484,64 @@ const CustomerPortal: React.FC<CustomerPortalProps> = ({ activeTab, setActiveTab
             {/* About Us section */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-center bg-white dark:bg-bg-dark border border-maroon/10 dark:border-saffron/10 p-8 sm:p-12 rounded-3xl glass">
               <div className="space-y-4">
-                <h3 className="font-logo font-extrabold text-2xl text-maroon dark:text-saffron">About Our Restaurant</h3>
+                <h3 className="font-logo font-extrabold text-2xl text-maroon dark:text-saffron">{cmsSettings?.aboutTitle || 'About Our Restaurant'}</h3>
                 <div className="space-y-3 text-xs text-neutral-500 dark:text-neutral-400 leading-relaxed font-medium">
                   <p>
-                    <strong>Restaurant History:</strong> Sri Vijaya Durga Restaurant has been a benchmark of culinary excellence in Guntur, dedicated to serving rich signature Biryanis, Claypot Tandoori platters, and authentic North Indian curries with premium standards.
+                    <strong>Restaurant History:</strong> {cmsSettings?.aboutHistory || 'Sri Vijaya Durga Restaurant has been a benchmark of culinary excellence in Guntur, dedicated to serving rich signature Biryanis, Claypot Tandoori platters, and authentic North Indian curries with premium standards.'}
                   </p>
                   <p>
-                    <strong>Special Features:</strong> We specialize in bulk catering for marriages, events, corporate events, and parties. We offer a ❄️ Fully Air Conditioned family dining hall, prompt 🛵 Home Delivery, and a completely digital QR Menu Ordering System.
+                    <strong>Special Features:</strong> {cmsSettings?.aboutSpecialFeatures || 'We specialize in bulk catering for marriages, events, corporate events, and parties. We offer a ❄️ Fully Air Conditioned family dining hall, prompt 🛵 Home Delivery, and a completely digital QR Menu Ordering System.'}
                   </p>
                   <p>
-                    <strong>Opening Year:</strong> Established in the year 2012 by proprietor Udarapu Navaneeth, SVD continues its legacy of "Tradition in Every Bite".
+                    <strong>Opening Year:</strong> Established in the year {cmsSettings?.aboutOpeningYear || '2012'} by proprietor {cmsSettings?.aboutOwnerName || 'Udarapu Navaneeth'}, SVD continues its legacy of "Tradition in Every Bite".
                   </p>
                 </div>
               </div>
               
               <div className="h-64 sm:h-80 rounded-2xl overflow-hidden border border-neutral-200 dark:border-neutral-800 relative bg-neutral-100 dark:bg-neutral-800">
                 <img 
-                  src="/restaurant_front.jpg" 
+                  src={cmsSettings?.aboutImage || '/restaurant_front.jpg'} 
                   alt="Sri Vijaya Durga Restaurant Front"
                   className="w-full h-full object-cover"
                 />
                 <div className="absolute bottom-4 left-4 bg-bg-dark/85 backdrop-blur-md p-3 border border-neutral-700/50 rounded-xl text-white">
                   <h4 className="text-[10px] text-saffron uppercase font-bold tracking-wider">Restaurant Owner</h4>
-                  <p className="text-xs font-extrabold font-logo">Udarapu Navaneeth</p>
+                  <p className="text-xs font-extrabold font-logo">{cmsSettings?.aboutOwnerName || 'Udarapu Navaneeth'}</p>
                 </div>
               </div>
             </div>
 
             {/* Menu Card showcase preview */}
             <div className="space-y-4 text-center">
-              <h3 className="font-logo font-extrabold text-2xl text-maroon dark:text-saffron">Our Menu Card</h3>
-              <p className="text-xs text-neutral-500 dark:text-neutral-400 max-w-md mx-auto">Browse our delicious printed offerings. Scan the table QR code to place orders instantly from your mobile phone!</p>
-              <div className="max-w-md mx-auto rounded-3xl border border-neutral-300 dark:border-neutral-700 overflow-hidden shadow-lg bg-white dark:bg-neutral-900">
-                <img 
-                  src="/menu_card.jpg" 
-                  alt="Sri Vijaya Durga printed menu card cover"
-                  className="w-full h-auto object-cover"
-                />
-              </div>
+              <h3 className="font-logo font-extrabold text-2xl text-maroon dark:text-saffron">{cmsSettings?.menuCardTitle || 'Our Menu Card'}</h3>
+              <p className="text-xs text-neutral-500 dark:text-neutral-400 max-w-md mx-auto">{cmsSettings?.menuCardDescription || 'Browse our delicious printed offerings. Scan the table QR code to place orders instantly from your mobile phone!'}</p>
+              
+              {cmsSettings?.menuPdfUrl ? (
+                <a 
+                  href={cmsSettings.menuPdfUrl} 
+                  target="_blank" 
+                  rel="noopener noreferrer" 
+                  className="block max-w-md mx-auto rounded-3xl border border-neutral-300 dark:border-neutral-700 overflow-hidden shadow-lg bg-white dark:bg-neutral-900 hover:scale-[1.02] transition-transform cursor-pointer"
+                  title="Click to download PDF Menu"
+                >
+                  <img 
+                    src={cmsSettings?.menuCardCoverImage || '/menu_card.jpg'} 
+                    alt="Sri Vijaya Durga printed menu card cover"
+                    className="w-full h-auto object-cover"
+                  />
+                  <div className="py-2.5 bg-maroon/5 dark:bg-saffron/5 border-t border-neutral-200 dark:border-neutral-800 text-[10px] font-bold text-maroon dark:text-saffron uppercase tracking-widest">
+                    📄 Download PDF Menu
+                  </div>
+                </a>
+              ) : (
+                <div className="max-w-md mx-auto rounded-3xl border border-neutral-300 dark:border-neutral-700 overflow-hidden shadow-lg bg-white dark:bg-neutral-900">
+                  <img 
+                    src={cmsSettings?.menuCardCoverImage || '/menu_card.jpg'} 
+                    alt="Sri Vijaya Durga printed menu card cover"
+                    className="w-full h-auto object-cover"
+                  />
+                </div>
+              )}
             </div>
 
             <GallerySection />
@@ -543,8 +574,41 @@ const CustomerPortal: React.FC<CustomerPortalProps> = ({ activeTab, setActiveTab
           </div>
         )}
       </div>
-
-
+      {/* Dynamic Popup Notice overlay modal */}
+      {showPopup && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white dark:bg-bg-dark border border-maroon/20 dark:border-saffron/20 rounded-3xl p-6 max-w-md w-full shadow-2xl relative glass space-y-6">
+            <button 
+              onClick={() => {
+                setShowPopup(false);
+                sessionStorage.setItem('svd_popup_dismissed', 'true');
+              }}
+              className="absolute top-4 right-4 text-neutral-450 hover:text-neutral-600 dark:hover:text-neutral-200"
+            >
+              ✕
+            </button>
+            {cmsSettings?.popupImage && (
+              <img src={cmsSettings.popupImage} alt={cmsSettings.popupTitle} className="w-full h-44 object-cover rounded-2xl" />
+            )}
+            <div className="space-y-2 text-center">
+              <h3 className="font-logo font-extrabold text-xl text-maroon dark:text-saffron">{cmsSettings?.popupTitle || 'Special Notice'}</h3>
+              <p className="text-xs text-neutral-500 dark:text-neutral-400 leading-relaxed">{cmsSettings?.popupDescription}</p>
+            </div>
+            {cmsSettings?.popupButtonText && (
+              <button 
+                onClick={() => {
+                  setShowPopup(false);
+                  sessionStorage.setItem('svd_popup_dismissed', 'true');
+                  setActiveTab('menu');
+                }}
+                className="w-full py-3 bg-maroon text-white dark:bg-saffron dark:text-maroon font-logo font-bold text-xs rounded-xl shadow-md"
+              >
+                {cmsSettings.popupButtonText}
+              </button>
+            )}
+          </div>
+        </div>
+      )}
 
     </div>
   );

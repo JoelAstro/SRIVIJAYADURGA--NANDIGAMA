@@ -1,5 +1,6 @@
 import express from 'express';
 import http from 'http';
+import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 
@@ -357,6 +358,272 @@ app.post('/api/orders/sync', async (req, res) => {
   // If the frontend tries to sync completely, we just broadcast to keep devices in sync
   io.emit('orders_synced', req.body);
   res.json({ message: 'Sync broadcasted' });
+});
+
+// --- CMS APIS ---
+
+// Directory setup
+const uploadsDir = path.join(__dirname, 'public/uploads');
+if (!fs.existsSync(uploadsDir)) {
+  fs.mkdirSync(uploadsDir, { recursive: true });
+}
+
+// Fallback configuration
+const DEFAULT_CMS_SETTINGS = {
+  restaurantName: "Sri Vijaya Durga",
+  restaurantTagline: "Family AC Restaurant",
+  restaurantDescription: "Sri Vijaya Durga Family AC Restaurant serves delicious, authentic Indian cuisine in a warm, welcoming family environment.",
+  ownerName: "Sri Vijaya Durga Team",
+  establishedYear: "2018",
+  restaurantLogo: "",
+  favicon: "",
+
+  heroTitle: "Experience Authentic Flavors",
+  heroSubtitle: "Welcome to Sri Vijaya Durga",
+  heroDescription: "Indulge in our exquisite collection of family recipe biryanis, tandooris, and authentic meals prepared with passion.",
+  primaryButtonText: "View Dining Menu",
+  primaryButtonUrl: "#menu",
+  secondaryButtonText: "Order Takeaway",
+  secondaryButtonUrl: "#parcels",
+  heroBgImage: "https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?auto=format&fit=crop&q=80&w=1200",
+
+  aboutTitle: "Our Culinary Journey",
+  aboutHistory: "Established with a vision to serve premium quality food, Sri Vijaya Durga has become a landmark for fine dining. Our master chefs bring decades of expertise to your table.",
+  aboutSpecialFeatures: "AC Dining Hall, Family Cabins, Live Catering Services, Takeaway Counter",
+  aboutOpeningYear: "2018",
+  aboutOwnerName: "SVD Management Team",
+  aboutImage: "https://images.unsplash.com/photo-1414235077428-338989a2e8c0?auto=format&fit=crop&q=80&w=800",
+
+  contactAddress: "Beside TTD Kalyana Mandapam, Vijaya talkies Road, Nandigama",
+  contactLandmark: "Beside TTD Kalyana Mandapam",
+  primaryPhone: "9966315544",
+  secondaryPhone: "9030121200",
+  whatsappNumber: "9030121200",
+  contactEmail: "info@srivijayadurga.com",
+  googleMapsUrl: "https://maps.app.goo.gl/qAypkmgzgzxfD6ND8?g_st=aw",
+  googleMapsCardImage: "https://images.unsplash.com/photo-1524661135-423995f22d0b?auto=format&fit=crop&q=80&w=600",
+
+  galleryImages: JSON.stringify([
+    { id: 1, url: "/gallery_0.jpg", caption: "Sri Vijaya Durga Restaurant Front View (Evening lights)" },
+    { id: 2, url: "/gallery_1.jpg", caption: "Sri Vijaya Durga Restaurant Entrance and AC Hall front" },
+    { id: 3, url: "/gallery_2.jpg", caption: "Premium AC Dining Hall interior with family guests" },
+    { id: 4, url: "/gallery_3.jpg", caption: "Cashier Terminal desk and POS billing portal counter" },
+    { id: 5, url: "/gallery_4.jpg", caption: "Comfortable family dining cabins and beverage chilling station" }
+  ]),
+
+  menuCardTitle: "Our Signature Menu",
+  menuCardDescription: "Explore our rich variety of authentic dishes compiled in our physical menu card.",
+  menuCardCoverImage: "https://images.unsplash.com/photo-1537047902294-62a40c20a6ae?auto=format&fit=crop&q=80&w=800",
+  menuPdfUrl: "",
+
+  footerDescription: "Serving happiness and authentic family hospitality since 2018.",
+  footerCopyright: "© 2026 Sri Vijaya Durga Restaurant. All Rights Reserved.",
+  facebookLink: "https://facebook.com",
+  instagramLink: "https://instagram.com",
+  youtubeLink: "https://youtube.com",
+  twitterLink: "https://twitter.com",
+  websiteLink: "https://srivijayadurga.com",
+
+  hoursMonday: "11:00 AM - 11:00 PM",
+  hoursTuesday: "11:00 AM - 11:00 PM",
+  hoursWednesday: "11:00 AM - 11:00 PM",
+  hoursThursday: "11:00 AM - 11:00 PM",
+  hoursFriday: "11:00 AM - 11:00 PM",
+  hoursSaturday: "11:00 AM - 11:00 PM",
+  hoursSunday: "11:00 AM - 11:00 PM",
+  holidayNotice: "Open All Days",
+
+  offersList: JSON.stringify([
+    { id: 1, title: "Weekend Family Feast Offer", description: "Get a free dessert on family orders above ₹1000. Valid Fri-Sun.", image: "https://images.unsplash.com/photo-1544025162-d76694265947?auto=format&fit=crop&q=80&w=500", couponCode: "FEAST10", isActive: true },
+    { id: 2, title: "First Takeaway Discount", description: "10% Flat discount on your first takeaway order placed via QR portal.", image: "https://images.unsplash.com/photo-1563245372-f21724e3856d?auto=format&fit=crop&q=80&w=500", couponCode: "PARCEL10", isActive: true }
+  ]),
+
+  popupEnabled: false,
+  popupTitle: "Festive Season Hours",
+  popupDescription: "Enjoy delicious food at Sri Vijaya Durga. Extended dining hall hours till midnight during the festive week!",
+  popupImage: "",
+  popupButtonText: "Explore Menu",
+
+  seoTitle: "Sri Vijaya Durga - Best Family AC Restaurant in Nandigama",
+  seoMetaDescription: "Welcome to Sri Vijaya Durga Restaurant. Taste the best biryani, tandoori, and authentic Indian family cuisines in Nandigama.",
+  seoMetaKeywords: "Sri Vijaya Durga, Nandigama Restaurant, AC Restaurant, Best Biryani",
+  seoOgImage: ""
+};
+
+app.use('/uploads', express.static(uploadsDir));
+
+// Helper: Get merged settings
+async function getMergedCmsSettings() {
+  try {
+    const latestVersion = await prisma.cmsVersion.findFirst({
+      orderBy: { createdAt: 'desc' }
+    });
+    if (latestVersion && latestVersion.content) {
+      const dbContent = JSON.parse(latestVersion.content);
+      return { ...DEFAULT_CMS_SETTINGS, ...dbContent };
+    }
+  } catch (err) {
+    console.error('Error fetching CMS settings, returning fallback:', err);
+  }
+  return DEFAULT_CMS_SETTINGS;
+}
+
+// GET latest CMS content
+app.get('/api/cms', async (req, res) => {
+  const merged = await getMergedCmsSettings();
+  res.json({ success: true, settings: merged });
+});
+
+// UPDATE CMS content
+app.post('/api/cms', async (req, res) => {
+  try {
+    const { settings, author } = req.body;
+    if (!settings) {
+      return res.status(400).json({ error: 'Settings content is required' });
+    }
+
+    // Validation
+    const errors = [];
+    if (settings.contactEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(settings.contactEmail)) {
+      errors.push('Invalid contact email address');
+    }
+    if (settings.primaryPhone && !/^\d{10}$/.test(settings.primaryPhone)) {
+      errors.push('Primary phone number must be exactly 10 digits');
+    }
+    if (settings.whatsappNumber && !/^\d{10}$/.test(settings.whatsappNumber)) {
+      errors.push('WhatsApp phone number must be exactly 10 digits');
+    }
+    if (settings.googleMapsUrl && !/^https?:\/\//.test(settings.googleMapsUrl)) {
+      errors.push('Google Maps URL must begin with http:// or https://');
+    }
+    if (errors.length > 0) {
+      return res.status(400).json({ success: false, errors });
+    }
+
+    // Merge incoming changes over fallback defaults
+    const current = await getMergedCmsSettings();
+    const updated = { ...current, ...settings };
+
+    const newVersion = await prisma.cmsVersion.create({
+      data: {
+        content: JSON.stringify(updated),
+        author: author || 'admin@srivijayadurga.com'
+      }
+    });
+
+    // Realtime update socket broadcast
+    io.emit('cms-updated', updated);
+
+    res.json({ success: true, versionId: newVersion.id, settings: updated });
+  } catch (err) {
+    console.error('Failed to update CMS settings:', err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// GET CMS version history list
+app.get('/api/cms/versions', async (req, res) => {
+  try {
+    // Return only metadata to keep responses light
+    const versions = await prisma.cmsVersion.findMany({
+      select: {
+        id: true,
+        author: true,
+        createdAt: true
+      },
+      orderBy: { createdAt: 'desc' }
+    });
+    res.json({ success: true, versions });
+  } catch (err) {
+    console.error('Failed to fetch CMS versions:', err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// RESTORE an old CMS version
+app.post('/api/cms/versions/:id/restore', async (req, res) => {
+  try {
+    const versionId = parseInt(req.params.id);
+    const targetVersion = await prisma.cmsVersion.findUnique({
+      where: { id: versionId }
+    });
+
+    if (!targetVersion) {
+      return res.status(404).json({ error: 'Version not found' });
+    }
+
+    const { author } = req.body;
+
+    // Create a new version cloning the restored content
+    const newVersion = await prisma.cmsVersion.create({
+      data: {
+        content: targetVersion.content,
+        author: author || `Restored version #${versionId}`
+      }
+    });
+
+    const restoredSettings = JSON.parse(targetVersion.content);
+
+    // Broadcast update
+    io.emit('cms-updated', restoredSettings);
+
+    res.json({ success: true, versionId: newVersion.id, settings: restoredSettings });
+  } catch (err) {
+    console.error('Failed to restore CMS version:', err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Base64 file upload endpoint
+app.post('/api/cms/upload', async (req, res) => {
+  try {
+    const { filename, type, base64 } = req.body;
+    if (!filename || !type || !base64) {
+      return res.status(400).json({ error: 'Missing required upload parameters' });
+    }
+
+    // Type validation
+    if (!type.startsWith('image/') && type !== 'application/pdf') {
+      return res.status(400).json({ error: 'Unsupported file type. Please upload images or PDFs only.' });
+    }
+
+    // Convert base64 payload to binary buffer
+    const buffer = Buffer.from(base64, 'base64');
+
+    // Size validation (Max 5MB)
+    if (buffer.length > 5 * 1024 * 1024) {
+      return res.status(400).json({ error: 'File size exceeds maximum limit of 5MB.' });
+    }
+
+    // Safe sanitized filename
+    const sanitizedFilename = `${Date.now()}_${filename.replace(/[^a-zA-Z0-9.\-_]/g, '')}`;
+    const filePath = path.join(uploadsDir, sanitizedFilename);
+
+    await fs.promises.writeFile(filePath, buffer);
+
+    res.json({ success: true, url: `/uploads/${sanitizedFilename}` });
+  } catch (err) {
+    console.error('Failed to upload file:', err);
+    res.status(500).json({ error: 'Failed to process file upload' });
+  }
+});
+
+// DELETE file endpoint
+app.delete('/api/cms/files/:filename', async (req, res) => {
+  try {
+    const filename = req.params.filename;
+    const filePath = path.join(uploadsDir, filename);
+
+    if (fs.existsSync(filePath)) {
+      await fs.promises.unlink(filePath);
+      res.json({ success: true, message: 'File deleted' });
+    } else {
+      res.status(404).json({ error: 'File not found' });
+    }
+  } catch (err) {
+    console.error('Failed to delete file:', err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
 });
 
 // --- SERVE STATIC FRONTEND FOR UNIFIED RENDER DEPLOYMENT ---

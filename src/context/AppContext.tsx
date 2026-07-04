@@ -86,6 +86,78 @@ export interface Rating {
   timestamp: number;
 }
 
+export interface CmsSettings {
+  restaurantName: string;
+  restaurantTagline: string;
+  restaurantDescription: string;
+  ownerName: string;
+  establishedYear: string;
+  restaurantLogo: string;
+  favicon: string;
+
+  heroTitle: string;
+  heroSubtitle: string;
+  heroDescription: string;
+  primaryButtonText: string;
+  primaryButtonUrl: string;
+  secondaryButtonText: string;
+  secondaryButtonUrl: string;
+  heroBgImage: string;
+
+  aboutTitle: string;
+  aboutHistory: string;
+  aboutSpecialFeatures: string;
+  aboutOpeningYear: string;
+  aboutOwnerName: string;
+  aboutImage: string;
+
+  contactAddress: string;
+  contactLandmark: string;
+  primaryPhone: string;
+  secondaryPhone: string;
+  whatsappNumber: string;
+  contactEmail: string;
+  googleMapsUrl: string;
+  googleMapsCardImage: string;
+
+  galleryImages: string; // JSON string
+
+  menuCardTitle: string;
+  menuCardDescription: string;
+  menuCardCoverImage: string;
+  menuPdfUrl: string;
+
+  footerDescription: string;
+  footerCopyright: string;
+  facebookLink: string;
+  instagramLink: string;
+  youtubeLink: string;
+  twitterLink: string;
+  websiteLink: string;
+
+  hoursMonday: string;
+  hoursTuesday: string;
+  hoursWednesday: string;
+  hoursThursday: string;
+  hoursFriday: string;
+  hoursSaturday: string;
+  hoursSunday: string;
+  holidayNotice: string;
+
+  offersList: string; // JSON string
+
+  popupEnabled: boolean;
+  popupTitle: string;
+  popupDescription: string;
+  popupImage: string;
+  popupButtonText: string;
+
+  seoTitle: string;
+  seoMetaDescription: string;
+  seoMetaKeywords: string;
+  seoOgImage: string;
+}
+
 interface AppContextType {
   tables: Table[];
   orders: Order[];
@@ -118,11 +190,11 @@ interface AppContextType {
   dismissNotification: (id: string) => void;
   dismissAllNotifications: () => void;
   getAverageRating: () => number;
-  updateMenu: (newMenu: any[]) => void;
+  updateMenu: (updated: any[]) => void;
   parcelItems: any[];
-  updateParcelMenu: (newMenu: any[]) => void;
-  bgImage: string;
-  setBgImage: (img: string) => void;
+  updateParcelMenu: (updated: any[]) => void;
+  bgImage: string | null;
+  setBgImage: (img: string | null) => void;
   placeParcelOrder: (
     items: any[],
     customerName: string,
@@ -136,6 +208,11 @@ interface AppContextType {
       longitude?: number;
     }
   ) => Promise<string>;
+  cmsSettings: CmsSettings;
+  updateCmsSettings: (settings: Partial<CmsSettings>) => Promise<boolean>;
+  cmsVersions: any[];
+  fetchCmsVersions: () => Promise<void>;
+  restoreCmsVersion: (versionId: number) => Promise<boolean>;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -172,6 +249,87 @@ const DEFAULT_TABLES: Table[] = [
   { id: 'TD4', number: 'D4', floor: 'first', capacity: 6, status: 'AVAILABLE' },
   { id: 'TD5', number: 'D5', floor: 'first', capacity: 6, status: 'AVAILABLE' },
 ];
+
+const DEFAULT_CMS_SETTINGS: CmsSettings = {
+  restaurantName: "Sri Vijaya Durga",
+  restaurantTagline: "Family AC Restaurant",
+  restaurantDescription: "Sri Vijaya Durga Family AC Restaurant serves delicious, authentic Indian cuisine in a warm, welcoming family environment.",
+  ownerName: "Sri Vijaya Durga Team",
+  establishedYear: "2018",
+  restaurantLogo: "",
+  favicon: "",
+
+  heroTitle: "Experience Authentic Flavors",
+  heroSubtitle: "Welcome to Sri Vijaya Durga",
+  heroDescription: "Indulge in our exquisite collection of family recipe biryanis, tandooris, and authentic meals prepared with passion.",
+  primaryButtonText: "View Dining Menu",
+  primaryButtonUrl: "#menu",
+  secondaryButtonText: "Order Takeaway",
+  secondaryButtonUrl: "#parcels",
+  heroBgImage: "https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?auto=format&fit=crop&q=80&w=1200",
+
+  aboutTitle: "Our Culinary Journey",
+  aboutHistory: "Established with a vision to serve premium quality food, Sri Vijaya Durga has become a landmark for fine dining. Our master chefs bring decades of expertise to your table.",
+  aboutSpecialFeatures: "AC Dining Hall, Family Cabins, Live Catering Services, Takeaway Counter",
+  aboutOpeningYear: "2018",
+  aboutOwnerName: "SVD Management Team",
+  aboutImage: "https://images.unsplash.com/photo-1414235077428-338989a2e8c0?auto=format&fit=crop&q=80&w=800",
+
+  contactAddress: "Beside TTD Kalyana Mandapam, Vijaya talkies Road, Nandigama",
+  contactLandmark: "Beside TTD Kalyana Mandapam",
+  primaryPhone: "9966315544",
+  secondaryPhone: "9030121200",
+  whatsappNumber: "9030121200",
+  contactEmail: "info@srivijayadurga.com",
+  googleMapsUrl: "https://maps.app.goo.gl/qAypkmgzgzxfD6ND8?g_st=aw",
+  googleMapsCardImage: "https://images.unsplash.com/photo-1524661135-423995f22d0b?auto=format&fit=crop&q=80&w=600",
+
+  galleryImages: JSON.stringify([
+    { id: 1, url: "/gallery_0.jpg", caption: "Sri Vijaya Durga Restaurant Front View (Evening lights)" },
+    { id: 2, url: "/gallery_1.jpg", caption: "Sri Vijaya Durga Restaurant Entrance and AC Hall front" },
+    { id: 3, url: "/gallery_2.jpg", caption: "Premium AC Dining Hall interior with family guests" },
+    { id: 4, url: "/gallery_3.jpg", caption: "Cashier Terminal desk and POS billing portal counter" },
+    { id: 5, url: "/gallery_4.jpg", caption: "Comfortable family dining cabins and beverage chilling station" }
+  ]),
+
+  menuCardTitle: "Our Signature Menu",
+  menuCardDescription: "Explore our rich variety of authentic dishes compiled in our physical menu card.",
+  menuCardCoverImage: "https://images.unsplash.com/photo-1537047902294-62a40c20a6ae?auto=format&fit=crop&q=80&w=800",
+  menuPdfUrl: "",
+
+  footerDescription: "Serving happiness and authentic family hospitality since 2018.",
+  footerCopyright: "© 2026 Sri Vijaya Durga Restaurant. All Rights Reserved.",
+  facebookLink: "https://facebook.com",
+  instagramLink: "https://instagram.com",
+  youtubeLink: "https://youtube.com",
+  twitterLink: "https://twitter.com",
+  websiteLink: "https://srivijayadurga.com",
+
+  hoursMonday: "11:00 AM - 11:00 PM",
+  hoursTuesday: "11:00 AM - 11:00 PM",
+  hoursWednesday: "11:00 AM - 11:00 PM",
+  hoursThursday: "11:00 AM - 11:00 PM",
+  hoursFriday: "11:00 AM - 11:00 PM",
+  hoursSaturday: "11:00 AM - 11:00 PM",
+  hoursSunday: "11:00 AM - 11:00 PM",
+  holidayNotice: "Open All Days",
+
+  offersList: JSON.stringify([
+    { id: 1, title: "Weekend Family Feast Offer", description: "Get a free dessert on family orders above ₹1000. Valid Fri-Sun.", image: "https://images.unsplash.com/photo-1544025162-d76694265947?auto=format&fit=crop&q=80&w=500", couponCode: "FEAST10", isActive: true },
+    { id: 2, title: "First Takeaway Discount", description: "10% Flat discount on your first takeaway order placed via QR portal.", image: "https://images.unsplash.com/photo-1563245372-f21724e3856d?auto=format&fit=crop&q=80&w=500", couponCode: "PARCEL10", isActive: true }
+  ]),
+
+  popupEnabled: false,
+  popupTitle: "Festive Season Hours",
+  popupDescription: "Enjoy delicious food at Sri Vijaya Durga. Extended dining hall hours till midnight during the festive week!",
+  popupImage: "",
+  popupButtonText: "Explore Menu",
+
+  seoTitle: "Sri Vijaya Durga - Best Family AC Restaurant in Nandigama",
+  seoMetaDescription: "Welcome to Sri Vijaya Durga Restaurant. Taste the best biryani, tandoori, and authentic Indian family cuisines in Nandigama.",
+  seoMetaKeywords: "Sri Vijaya Durga, Nandigama Restaurant, AC Restaurant, Best Biryani",
+  seoOgImage: ""
+};
 
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   // --- STATE ---
@@ -266,7 +424,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const [activeTable, setActiveTable] = useState<string | null>(null);
   const [cart, setCart] = useState<CartItem[]>([]);
-  const [bgImage, setBgImage] = useState<string>('/hero_background.png');
+  const [bgImage, setBgImage] = useState<string | null>('/hero_background.png');
   
   const [theme, setThemeState] = useState<'light' | 'dark'>(() => {
     const stored = localStorage.getItem('theme');
@@ -278,8 +436,132 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const tablesRef = React.useRef(tables);
   const ordersRef = React.useRef(orders);
   const paymentNotificationsRef = React.useRef(paymentNotifications);
+  const [cmsSettings, setCmsSettings] = useState<CmsSettings>(DEFAULT_CMS_SETTINGS);
+  const [cmsVersions, setCmsVersions] = useState<any[]>([]);
 
+  // Fetch settings and versions on startup
+  useEffect(() => {
+    fetch('/api/cms')
+      .then(res => res.json())
+      .then(data => {
+        if (data.success && data.settings) {
+          setCmsSettings(data.settings);
+        }
+      })
+      .catch(err => console.error('Failed to load CMS settings:', err));
 
+    fetchCmsVersions();
+  }, []);
+
+  // Socket listener for real-time cms-updated events
+  useEffect(() => {
+    const socket = io();
+    socket.on('cms-updated', (updatedSettings: CmsSettings) => {
+      setCmsSettings(updatedSettings);
+    });
+    return () => {
+      socket.disconnect();
+    };
+  }, []);
+
+  // Apply SEO, Title, Favicon dynamically
+  useEffect(() => {
+    if (cmsSettings.seoTitle) {
+      document.title = cmsSettings.seoTitle;
+    }
+    
+    // Favicon link element updating
+    const faviconUrl = cmsSettings.favicon || '/favicon.ico';
+    let link: HTMLLinkElement | null = document.querySelector("link[rel~='icon']");
+    if (!link) {
+      link = document.createElement('link');
+      link.rel = 'icon';
+      document.getElementsByTagName('head')[0].appendChild(link);
+    }
+    link.href = faviconUrl;
+
+    // Meta Description updating
+    let metaDesc: HTMLMetaElement | null = document.querySelector("meta[name='description']");
+    if (!metaDesc) {
+      metaDesc = document.createElement('meta');
+      metaDesc.name = 'description';
+      document.getElementsByTagName('head')[0].appendChild(metaDesc);
+    }
+    metaDesc.content = cmsSettings.seoMetaDescription || '';
+
+    // Meta Keywords updating
+    let metaKeywords: HTMLMetaElement | null = document.querySelector("meta[name='keywords']");
+    if (!metaKeywords) {
+      metaKeywords = document.createElement('meta');
+      metaKeywords.name = 'keywords';
+      document.getElementsByTagName('head')[0].appendChild(metaKeywords);
+    }
+    metaKeywords.content = cmsSettings.seoMetaKeywords || '';
+  }, [cmsSettings.seoTitle, cmsSettings.favicon, cmsSettings.seoMetaDescription, cmsSettings.seoMetaKeywords]);
+
+  // Update CMS
+  const updateCmsSettings = async (settingsToUpdate: Partial<CmsSettings>): Promise<boolean> => {
+    try {
+      const response = await fetch('/api/cms', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          settings: settingsToUpdate,
+          author: adminSession || 'admin@srivijayadurga.com'
+        })
+      });
+      if (response.ok) {
+        const data = await response.json();
+        if (data.success) {
+          setCmsSettings(data.settings);
+          fetchCmsVersions();
+          return true;
+        }
+      }
+      return false;
+    } catch (err) {
+      console.error('Failed to save CMS settings:', err);
+      return false;
+    }
+  };
+
+  // Fetch CMS versions history
+  const fetchCmsVersions = async () => {
+    try {
+      const res = await fetch('/api/cms/versions');
+      const data = await res.json();
+      if (data.success) {
+        setCmsVersions(data.versions);
+      }
+    } catch (err) {
+      console.error('Failed to load version history:', err);
+    }
+  };
+
+  // Restore CMS version
+  const restoreCmsVersion = async (versionId: number): Promise<boolean> => {
+    try {
+      const response = await fetch(`/api/cms/versions/${versionId}/restore`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          author: adminSession || `Restored version #${versionId}`
+        })
+      });
+      if (response.ok) {
+        const data = await response.json();
+        if (data.success) {
+          setCmsSettings(data.settings);
+          fetchCmsVersions();
+          return true;
+        }
+      }
+      return false;
+    } catch (err) {
+      console.error('Failed to restore CMS version:', err);
+      return false;
+    }
+  };
   const socketRef = React.useRef<any>(null);
 
   useEffect(() => {
@@ -1256,7 +1538,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       updateParcelMenu,
       bgImage,
       setBgImage,
-      placeParcelOrder
+      placeParcelOrder,
+      cmsSettings,
+      updateCmsSettings,
+      cmsVersions,
+      fetchCmsVersions,
+      restoreCmsVersion
     }}>
       {children}
     </AppContext.Provider>

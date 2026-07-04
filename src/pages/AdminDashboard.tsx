@@ -7,7 +7,7 @@ import {
   BarChart3, Users, DollarSign, ClipboardList, LogOut, Download, 
   Printer, QrCode, UtensilsCrossed, Star, Settings, Search, 
   Edit, Trash2, PlusCircle, X, 
-  ToggleLeft, ToggleRight, ShoppingBag
+  ToggleLeft, ToggleRight, ShoppingBag, Globe
 } from 'lucide-react';
 
 interface Dish {
@@ -28,11 +28,23 @@ const AdminDashboard: React.FC = () => {
     updateUpiSettings, updateMenu, getAverageRating,
     paymentNotifications, dismissNotification, dismissAllNotifications,
     parcelItems, updateParcelMenu, releaseTable, settleBillAndReleaseTable,
-    updateOrderStatus
+    updateOrderStatus, cmsSettings, updateCmsSettings, cmsVersions, restoreCmsVersion
   } = useApp();
 
   const [isAuthenticated, setIsAuthenticated] = useState(!!adminSession);
-  const [activeTab, setActiveTab] = useState<'overview' | 'menu' | 'ratings' | 'invoices' | 'settings' | 'parcels'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'menu' | 'ratings' | 'invoices' | 'settings' | 'parcels' | 'cms'>('overview');
+  
+  const [cmsForm, setCmsForm] = useState<any>({});
+  const [cmsSubTab, setCmsSubTab] = useState<string>('general');
+  const [cmsSaving, setCmsSaving] = useState(false);
+  const [newOffer, setNewOffer] = useState({ title: '', description: '', image: '', couponCode: '', isActive: true });
+
+  // Sync CMS forms locally
+  useEffect(() => {
+    if (cmsSettings) {
+      setCmsForm(cmsSettings);
+    }
+  }, [cmsSettings]);
   const [menuSubTab, setMenuSubTab] = useState<'dine-in' | 'takeaway'>('dine-in');
   const [invoiceSubTab, setInvoiceSubTab] = useState<'active-bills' | 'history'>('active-bills');
   const [parcelSubTab, setParcelSubTab] = useState<'active' | 'history'>('active');
@@ -436,6 +448,96 @@ const AdminDashboard: React.FC = () => {
     return true;
   });
 
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>, fieldName: string) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (file.size > 5 * 1024 * 1024) {
+      alert("File size exceeds maximum limit of 5MB.");
+      return;
+    }
+
+    const validTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/gif', 'image/svg+xml', 'application/pdf'];
+    if (!validTypes.includes(file.type)) {
+      alert("Unsupported file type. Please upload images or PDFs only.");
+      return;
+    }
+
+    if (file.type.startsWith('image/') && file.type !== 'image/svg+xml') {
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        const img = new Image();
+        img.onload = async () => {
+          const canvas = document.createElement('canvas');
+          let width = img.width;
+          let height = img.height;
+          const MAX_WIDTH = 1200;
+          if (width > MAX_WIDTH) {
+            height = Math.round((height * MAX_WIDTH) / width);
+            width = MAX_WIDTH;
+          }
+          canvas.width = width;
+          canvas.height = height;
+
+          const ctx = canvas.getContext('2d');
+          ctx?.drawImage(img, 0, 0, width, height);
+
+          const dataUrl = canvas.toDataURL('image/jpeg', 0.75);
+          const base64Content = dataUrl.split(',')[1];
+
+          try {
+            const res = await fetch('/api/cms/upload', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                filename: file.name.substring(0, file.name.lastIndexOf('.')) + '.jpg',
+                type: 'image/jpeg',
+                base64: base64Content
+              })
+            });
+            const data = await res.json();
+            if (data.success && data.url) {
+              setCmsForm((prev: any) => ({ ...prev, [fieldName]: data.url }));
+            } else {
+              alert(data.error || "Upload failed");
+            }
+          } catch (err) {
+            console.error("Image upload failed:", err);
+            alert("Image upload failed");
+          }
+        };
+        img.src = event.target?.result as string;
+      };
+      reader.readAsDataURL(file);
+    } else {
+      const reader = new FileReader();
+      reader.onload = async (event) => {
+        const base64Content = (event.target?.result as string).split(',')[1];
+        try {
+          const res = await fetch('/api/cms/upload', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              filename: file.name,
+              type: file.type,
+              base64: base64Content
+            })
+          });
+          const data = await res.json();
+          if (data.success && data.url) {
+            setCmsForm((prev: any) => ({ ...prev, [fieldName]: data.url }));
+          } else {
+            alert(data.error || "Upload failed");
+          }
+        } catch (err) {
+          console.error("Upload error:", err);
+          alert("Upload error");
+        }
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
   if (!isAuthenticated) {
     return <AuthGate role="admin" onSuccess={() => setIsAuthenticated(true)} />;
   }
@@ -469,6 +571,7 @@ const AdminDashboard: React.FC = () => {
           { id: 'ratings', label: 'Guest Reviews', icon: Star },
           { id: 'invoices', label: 'Invoices', icon: ClipboardList },
           { id: 'settings', label: 'Settings', icon: Settings },
+          { id: 'cms', label: 'Website CMS', icon: Globe },
         ].map(tab => {
           let notificationCount = 0;
           if (tab.id === 'parcels') {
@@ -1746,6 +1849,1139 @@ const AdminDashboard: React.FC = () => {
                 <Printer className="w-4 h-4" /> Print QR Ticket
               </button>
             </div>
+          </div>
+
+        </div>
+      )}
+
+      {/* 7. WEBSITE CMS VIEW */}
+      {activeTab === 'cms' && (
+        <div className="grid grid-cols-1 lg:grid-cols-4 gap-8 animate-fade-in select-none">
+          
+          {/* CMS Sub-Navigation Sidebar */}
+          <div className="lg:col-span-1 bg-white dark:bg-bg-dark border border-neutral-250 dark:border-neutral-800 rounded-3xl p-5 shadow-sm glass space-y-2">
+            <h4 className="text-[10px] uppercase font-black tracking-widest text-neutral-450 dark:text-neutral-500 mb-3 px-2">CMS Modules</h4>
+            {[
+              { id: 'general', label: 'General Info' },
+              { id: 'home', label: 'Home Page' },
+              { id: 'about', label: 'About Section' },
+              { id: 'contact', label: 'Contact Section' },
+              { id: 'gallery', label: 'Gallery Showcase' },
+              { id: 'menu_card', label: 'Menu Card PDF' },
+              { id: 'footer', label: 'Footer Links' },
+              { id: 'hours', label: 'Opening Hours' },
+              { id: 'offers', label: 'Offers & Promos' },
+              { id: 'popup', label: 'Popup Alert' },
+              { id: 'seo', label: 'SEO Metadata' },
+              { id: 'theme', label: 'Theme Assets' },
+              { id: 'versions', label: 'Version History' }
+            ].map(subTab => (
+              <button
+                key={subTab.id}
+                type="button"
+                onClick={() => setCmsSubTab(subTab.id)}
+                className={`w-full text-left px-3.5 py-2.5 rounded-xl text-xs font-bold transition-all relative cursor-pointer border-none flex justify-between items-center ${
+                  cmsSubTab === subTab.id
+                    ? 'bg-maroon text-white dark:bg-saffron dark:text-maroon'
+                    : 'text-neutral-500 hover:bg-neutral-100 dark:hover:bg-neutral-850 bg-transparent'
+                }`}
+              >
+                <span>{subTab.label}</span>
+                {cmsSubTab === subTab.id && <span className="text-[10px]">●</span>}
+              </button>
+            ))}
+          </div>
+
+          {/* CMS Workspace Panel */}
+          <div className="lg:col-span-3 bg-white dark:bg-bg-dark border border-neutral-250 dark:border-neutral-800 rounded-3xl p-6 shadow-sm glass space-y-6">
+            <div className="flex items-center justify-between border-b border-neutral-150 dark:border-neutral-800 pb-3">
+              <div>
+                <h3 className="font-logo font-extrabold text-lg text-maroon dark:text-saffron capitalize">{cmsSubTab.replace('_', ' ')} Settings</h3>
+                <p className="text-[10px] text-neutral-450">Edit website dynamic content variables and sync changes instantly.</p>
+              </div>
+              <div className="flex items-center gap-2">
+                <a 
+                  href="/#home" 
+                  target="_blank" 
+                  rel="noopener noreferrer" 
+                  className="px-3 py-1.5 bg-neutral-100 hover:bg-neutral-200 dark:bg-neutral-800 dark:hover:bg-neutral-700 text-neutral-700 dark:text-neutral-200 font-bold text-xs rounded-xl flex items-center gap-1 cursor-pointer"
+                >
+                  Preview Website
+                </a>
+                <button 
+                  type="button"
+                  onClick={() => {
+                    if (confirm('Discard all unsaved edits?')) {
+                      setCmsForm(cmsSettings);
+                    }
+                  }}
+                  className="px-3 py-1.5 border hover:bg-red-500/5 hover:text-red-500 rounded-xl font-bold text-xs cursor-pointer"
+                >
+                  Reset Tab
+                </button>
+              </div>
+            </div>
+
+            <form onSubmit={async (e) => {
+              e.preventDefault();
+              setCmsSaving(true);
+              const success = await updateCmsSettings(cmsForm);
+              setCmsSaving(false);
+              if (success) {
+                alert('CMS configuration saved & broadcasted successfully!');
+              } else {
+                alert('Failed to save CMS configuration. Check field validation.');
+              }
+            }} className="space-y-6">
+
+              {/* Sub-tab forms */}
+              {cmsSubTab === 'general' && (
+                <div className="space-y-4">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-xs font-bold text-neutral-500 mb-1">Restaurant Name</label>
+                      <input 
+                        type="text" 
+                        required
+                        value={cmsForm.restaurantName || ''} 
+                        onChange={(e) => setCmsForm({...cmsForm, restaurantName: e.target.value})}
+                        className="w-full px-3 py-2.5 rounded-xl border border-neutral-300 dark:border-neutral-750 bg-neutral-50 dark:bg-neutral-800 text-xs font-semibold outline-none"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold text-neutral-500 mb-1">Restaurant Tagline</label>
+                      <input 
+                        type="text" 
+                        required
+                        value={cmsForm.restaurantTagline || ''} 
+                        onChange={(e) => setCmsForm({...cmsForm, restaurantTagline: e.target.value})}
+                        className="w-full px-3 py-2.5 rounded-xl border border-neutral-300 dark:border-neutral-750 bg-neutral-50 dark:bg-neutral-800 text-xs font-semibold outline-none"
+                      />
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold text-neutral-500 mb-1">Description</label>
+                    <textarea 
+                      rows={3} 
+                      value={cmsForm.restaurantDescription || ''} 
+                      onChange={(e) => setCmsForm({...cmsForm, restaurantDescription: e.target.value})}
+                      className="w-full px-3 py-2.5 rounded-xl border border-neutral-300 dark:border-neutral-750 bg-neutral-50 dark:bg-neutral-800 text-xs font-semibold outline-none"
+                    />
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-xs font-bold text-neutral-500 mb-1">Owner Name</label>
+                      <input 
+                        type="text" 
+                        value={cmsForm.ownerName || ''} 
+                        onChange={(e) => setCmsForm({...cmsForm, ownerName: e.target.value})}
+                        className="w-full px-3 py-2.5 rounded-xl border border-neutral-300 dark:border-neutral-750 bg-neutral-50 dark:bg-neutral-800 text-xs font-semibold outline-none"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold text-neutral-500 mb-1">Established Year</label>
+                      <input 
+                        type="text" 
+                        value={cmsForm.establishedYear || ''} 
+                        onChange={(e) => setCmsForm({...cmsForm, establishedYear: e.target.value})}
+                        className="w-full px-3 py-2.5 rounded-xl border border-neutral-300 dark:border-neutral-750 bg-neutral-50 dark:bg-neutral-800 text-xs font-semibold outline-none"
+                      />
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {cmsSubTab === 'home' && (
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-xs font-bold text-neutral-500 mb-1">Hero Title</label>
+                    <input 
+                      type="text" 
+                      value={cmsForm.heroTitle || ''} 
+                      onChange={(e) => setCmsForm({...cmsForm, heroTitle: e.target.value})}
+                      className="w-full px-3 py-2.5 rounded-xl border border-neutral-300 dark:border-neutral-750 bg-neutral-50 dark:bg-neutral-800 text-xs font-semibold outline-none"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold text-neutral-500 mb-1">Hero Description</label>
+                    <textarea 
+                      rows={3} 
+                      value={cmsForm.heroDescription || ''} 
+                      onChange={(e) => setCmsForm({...cmsForm, heroDescription: e.target.value})}
+                      className="w-full px-3 py-2.5 rounded-xl border border-neutral-300 dark:border-neutral-750 bg-neutral-50 dark:bg-neutral-800 text-xs font-semibold outline-none"
+                    />
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-xs font-bold text-neutral-500 mb-1">Primary Button Text</label>
+                      <input 
+                        type="text" 
+                        value={cmsForm.primaryButtonText || ''} 
+                        onChange={(e) => setCmsForm({...cmsForm, primaryButtonText: e.target.value})}
+                        className="w-full px-3 py-2.5 rounded-xl border border-neutral-300 dark:border-neutral-750 bg-neutral-50 dark:bg-neutral-800 text-xs font-semibold outline-none"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold text-neutral-500 mb-1">Primary Button URL</label>
+                      <input 
+                        type="text" 
+                        value={cmsForm.primaryButtonUrl || ''} 
+                        onChange={(e) => setCmsForm({...cmsForm, primaryButtonUrl: e.target.value})}
+                        className="w-full px-3 py-2.5 rounded-xl border border-neutral-300 dark:border-neutral-750 bg-neutral-50 dark:bg-neutral-800 text-xs font-semibold outline-none"
+                      />
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-xs font-bold text-neutral-500 mb-1">Secondary Button Text</label>
+                      <input 
+                        type="text" 
+                        value={cmsForm.secondaryButtonText || ''} 
+                        onChange={(e) => setCmsForm({...cmsForm, secondaryButtonText: e.target.value})}
+                        className="w-full px-3 py-2.5 rounded-xl border border-neutral-300 dark:border-neutral-750 bg-neutral-50 dark:bg-neutral-800 text-xs font-semibold outline-none"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold text-neutral-500 mb-1">Secondary Button URL</label>
+                      <input 
+                        type="text" 
+                        value={cmsForm.secondaryButtonUrl || ''} 
+                        onChange={(e) => setCmsForm({...cmsForm, secondaryButtonUrl: e.target.value})}
+                        className="w-full px-3 py-2.5 rounded-xl border border-neutral-300 dark:border-neutral-750 bg-neutral-50 dark:bg-neutral-800 text-xs font-semibold outline-none"
+                      />
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold text-neutral-500 mb-1">Hero Background Image</label>
+                    <div className="flex gap-4 items-center">
+                      <input 
+                        type="text" 
+                        value={cmsForm.heroBgImage || ''} 
+                        onChange={(e) => setCmsForm({...cmsForm, heroBgImage: e.target.value})}
+                        className="flex-1 px-3 py-2.5 rounded-xl border border-neutral-300 dark:border-neutral-750 bg-neutral-50 dark:bg-neutral-800 text-xs font-semibold outline-none"
+                      />
+                      <input 
+                        type="file" 
+                        accept="image/*"
+                        onChange={(e) => handleFileUpload(e, 'heroBgImage')}
+                        className="text-xs"
+                      />
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {cmsSubTab === 'about' && (
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-xs font-bold text-neutral-500 mb-1">About Us Section Title</label>
+                    <input 
+                      type="text" 
+                      value={cmsForm.aboutTitle || ''} 
+                      onChange={(e) => setCmsForm({...cmsForm, aboutTitle: e.target.value})}
+                      className="w-full px-3 py-2.5 rounded-xl border border-neutral-300 dark:border-neutral-750 bg-neutral-50 dark:bg-neutral-800 text-xs font-semibold outline-none"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold text-neutral-500 mb-1">History &amp; Culinary Story</label>
+                    <textarea 
+                      rows={4} 
+                      value={cmsForm.aboutHistory || ''} 
+                      onChange={(e) => setCmsForm({...cmsForm, aboutHistory: e.target.value})}
+                      className="w-full px-3 py-2.5 rounded-xl border border-neutral-300 dark:border-neutral-750 bg-neutral-50 dark:bg-neutral-800 text-xs font-semibold outline-none"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold text-neutral-500 mb-1">Special Features list</label>
+                    <input 
+                      type="text" 
+                      value={cmsForm.aboutSpecialFeatures || ''} 
+                      onChange={(e) => setCmsForm({...cmsForm, aboutSpecialFeatures: e.target.value})}
+                      placeholder="e.g. AC cabins, Free WiFi, Catering"
+                      className="w-full px-3 py-2.5 rounded-xl border border-neutral-300 dark:border-neutral-750 bg-neutral-50 dark:bg-neutral-800 text-xs font-semibold outline-none"
+                    />
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-xs font-bold text-neutral-500 mb-1">Opening / Founder Year</label>
+                      <input 
+                        type="text" 
+                        value={cmsForm.aboutOpeningYear || ''} 
+                        onChange={(e) => setCmsForm({...cmsForm, aboutOpeningYear: e.target.value})}
+                        className="w-full px-3 py-2.5 rounded-xl border border-neutral-300 dark:border-neutral-750 bg-neutral-50 dark:bg-neutral-800 text-xs font-semibold outline-none"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold text-neutral-500 mb-1">Founder / Owner Name</label>
+                      <input 
+                        type="text" 
+                        value={cmsForm.aboutOwnerName || ''} 
+                        onChange={(e) => setCmsForm({...cmsForm, aboutOwnerName: e.target.value})}
+                        className="w-full px-3 py-2.5 rounded-xl border border-neutral-300 dark:border-neutral-750 bg-neutral-50 dark:bg-neutral-800 text-xs font-semibold outline-none"
+                      />
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold text-neutral-500 mb-1">About Image Showcase</label>
+                    <div className="flex gap-4 items-center">
+                      <input 
+                        type="text" 
+                        value={cmsForm.aboutImage || ''} 
+                        onChange={(e) => setCmsForm({...cmsForm, aboutImage: e.target.value})}
+                        className="flex-1 px-3 py-2.5 rounded-xl border border-neutral-300 dark:border-neutral-750 bg-neutral-50 dark:bg-neutral-800 text-xs font-semibold outline-none"
+                      />
+                      <input 
+                        type="file" 
+                        accept="image/*"
+                        onChange={(e) => handleFileUpload(e, 'aboutImage')}
+                        className="text-xs"
+                      />
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {cmsSubTab === 'contact' && (
+                <div className="space-y-4">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-xs font-bold text-neutral-500 mb-1">Street Address</label>
+                      <input 
+                        type="text" 
+                        value={cmsForm.contactAddress || ''} 
+                        onChange={(e) => setCmsForm({...cmsForm, contactAddress: e.target.value})}
+                        className="w-full px-3 py-2.5 rounded-xl border border-neutral-300 dark:border-neutral-750 bg-neutral-50 dark:bg-neutral-800 text-xs font-semibold outline-none"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold text-neutral-500 mb-1">Landmark</label>
+                      <input 
+                        type="text" 
+                        value={cmsForm.contactLandmark || ''} 
+                        onChange={(e) => setCmsForm({...cmsForm, contactLandmark: e.target.value})}
+                        className="w-full px-3 py-2.5 rounded-xl border border-neutral-300 dark:border-neutral-750 bg-neutral-50 dark:bg-neutral-800 text-xs font-semibold outline-none"
+                      />
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-3 gap-4">
+                    <div>
+                      <label className="block text-xs font-bold text-neutral-500 mb-1">Primary Phone</label>
+                      <input 
+                        type="text" 
+                        value={cmsForm.primaryPhone || ''} 
+                        onChange={(e) => setCmsForm({...cmsForm, primaryPhone: e.target.value})}
+                        className="w-full px-3 py-2.5 rounded-xl border border-neutral-300 dark:border-neutral-750 bg-neutral-50 dark:bg-neutral-800 text-xs font-semibold outline-none"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold text-neutral-500 mb-1">Secondary Phone</label>
+                      <input 
+                        type="text" 
+                        value={cmsForm.secondaryPhone || ''} 
+                        onChange={(e) => setCmsForm({...cmsForm, secondaryPhone: e.target.value})}
+                        className="w-full px-3 py-2.5 rounded-xl border border-neutral-300 dark:border-neutral-750 bg-neutral-50 dark:bg-neutral-800 text-xs font-semibold outline-none"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold text-neutral-500 mb-1">WhatsApp Number</label>
+                      <input 
+                        type="text" 
+                        value={cmsForm.whatsappNumber || ''} 
+                        onChange={(e) => setCmsForm({...cmsForm, whatsappNumber: e.target.value})}
+                        className="w-full px-3 py-2.5 rounded-xl border border-neutral-300 dark:border-neutral-750 bg-neutral-50 dark:bg-neutral-800 text-xs font-semibold outline-none"
+                      />
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-xs font-bold text-neutral-500 mb-1">Support Email</label>
+                      <input 
+                        type="email" 
+                        value={cmsForm.contactEmail || ''} 
+                        onChange={(e) => setCmsForm({...cmsForm, contactEmail: e.target.value})}
+                        className="w-full px-3 py-2.5 rounded-xl border border-neutral-300 dark:border-neutral-750 bg-neutral-50 dark:bg-neutral-800 text-xs font-semibold outline-none"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold text-neutral-500 mb-1">Google Maps URL</label>
+                      <input 
+                        type="text" 
+                        value={cmsForm.googleMapsUrl || ''} 
+                        onChange={(e) => setCmsForm({...cmsForm, googleMapsUrl: e.target.value})}
+                        className="w-full px-3 py-2.5 rounded-xl border border-neutral-300 dark:border-neutral-750 bg-neutral-50 dark:bg-neutral-800 text-xs font-semibold outline-none"
+                      />
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold text-neutral-500 mb-1">Google Maps Card Image</label>
+                    <div className="flex gap-4 items-center">
+                      <input 
+                        type="text" 
+                        value={cmsForm.googleMapsCardImage || ''} 
+                        onChange={(e) => setCmsForm({...cmsForm, googleMapsCardImage: e.target.value})}
+                        className="flex-1 px-3 py-2.5 rounded-xl border border-neutral-300 dark:border-neutral-750 bg-neutral-50 dark:bg-neutral-800 text-xs font-semibold outline-none"
+                      />
+                      <input 
+                        type="file" 
+                        accept="image/*"
+                        onChange={(e) => handleFileUpload(e, 'googleMapsCardImage')}
+                        className="text-xs"
+                      />
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {cmsSubTab === 'gallery' && (
+                <div className="space-y-6">
+                  <div>
+                    <span className="text-[10px] text-neutral-400 font-bold block mb-3 uppercase tracking-wider">Replace and Reorder Gallery Images</span>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      {JSON.parse(cmsForm.galleryImages || '[]').map((img: any, idx: number, arr: any[]) => (
+                        <div key={img.id || idx} className="border border-neutral-200 dark:border-neutral-800 p-4 rounded-2xl bg-neutral-50/50 dark:bg-neutral-850/10 flex gap-3 relative">
+                          <img src={img.url} alt={img.caption} className="w-20 h-20 rounded-xl object-cover border border-neutral-200 dark:border-neutral-750" />
+                          <div className="flex-1 space-y-2">
+                            <div>
+                              <label className="block text-[10px] font-bold text-neutral-400 uppercase tracking-wider mb-0.5">Image Caption / Title</label>
+                              <input 
+                                type="text"
+                                value={img.caption}
+                                onChange={(e) => {
+                                  const updatedArr = [...arr];
+                                  updatedArr[idx] = { ...img, caption: e.target.value };
+                                  setCmsForm({ ...cmsForm, galleryImages: JSON.stringify(updatedArr) });
+                                }}
+                                className="w-full px-2 py-1 rounded border border-neutral-300 dark:border-neutral-750 bg-white dark:bg-neutral-800 text-xs outline-none"
+                              />
+                            </div>
+                            <div className="flex gap-2 items-center">
+                              <input 
+                                type="file" 
+                                accept="image/*"
+                                onChange={async (e) => {
+                                  const file = e.target.files?.[0];
+                                  if (!file) return;
+
+                                  if (file.size > 5 * 1024 * 1024) {
+                                    alert("File size exceeds 5MB");
+                                    return;
+                                  }
+
+                                  const reader = new FileReader();
+                                  reader.onload = (event) => {
+                                    const imageObj = new Image();
+                                    imageObj.onload = async () => {
+                                      const canvas = document.createElement('canvas');
+                                      let width = imageObj.width;
+                                      let height = imageObj.height;
+                                      const MAX_WIDTH = 1000;
+                                      if (width > MAX_WIDTH) {
+                                        height = Math.round((height * MAX_WIDTH) / width);
+                                        width = MAX_WIDTH;
+                                      }
+                                      canvas.width = width;
+                                      canvas.height = height;
+                                      const ctx = canvas.getContext('2d');
+                                      ctx?.drawImage(imageObj, 0, 0, width, height);
+
+                                      const base64 = canvas.toDataURL('image/jpeg', 0.75).split(',')[1];
+                                      const uploadRes = await fetch('/api/cms/upload', {
+                                        method: 'POST',
+                                        headers: { 'Content-Type': 'application/json' },
+                                        body: JSON.stringify({
+                                          filename: file.name,
+                                          type: 'image/jpeg',
+                                          base64
+                                        })
+                                      });
+                                      const uploadData = await uploadRes.json();
+                                      if (uploadData.success && uploadData.url) {
+                                        const updatedArr = [...arr];
+                                        updatedArr[idx] = { ...img, url: uploadData.url };
+                                        setCmsForm({ ...cmsForm, galleryImages: JSON.stringify(updatedArr) });
+                                      }
+                                    };
+                                    imageObj.src = event.target?.result as string;
+                                  };
+                                  reader.readAsDataURL(file);
+                                }}
+                                className="text-[10px]"
+                              />
+                            </div>
+                          </div>
+
+                          <div className="absolute top-2 right-2 flex gap-1.5">
+                            <button
+                              type="button"
+                              disabled={idx === 0}
+                              onClick={() => {
+                                const updatedArr = [...arr];
+                                const temp = updatedArr[idx];
+                                updatedArr[idx] = updatedArr[idx - 1];
+                                updatedArr[idx - 1] = temp;
+                                setCmsForm({ ...cmsForm, galleryImages: JSON.stringify(updatedArr) });
+                              }}
+                              className="w-5 h-5 rounded bg-neutral-100 hover:bg-neutral-200 dark:bg-neutral-800 dark:hover:bg-neutral-700 text-xs font-black flex items-center justify-center cursor-pointer disabled:opacity-30 border-none"
+                            >
+                              ▲
+                            </button>
+                            <button
+                              type="button"
+                              disabled={idx === arr.length - 1}
+                              onClick={() => {
+                                const updatedArr = [...arr];
+                                const temp = updatedArr[idx];
+                                updatedArr[idx] = updatedArr[idx + 1];
+                                updatedArr[idx + 1] = temp;
+                                setCmsForm({ ...cmsForm, galleryImages: JSON.stringify(updatedArr) });
+                              }}
+                              className="w-5 h-5 rounded bg-neutral-100 hover:bg-neutral-200 dark:bg-neutral-800 dark:hover:bg-neutral-700 text-xs font-black flex items-center justify-center cursor-pointer disabled:opacity-30 border-none"
+                            >
+                              ▼
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                if (confirm('Are you sure you want to delete this gallery item?')) {
+                                  const updatedArr = arr.filter((_, i) => i !== idx);
+                                  setCmsForm({ ...cmsForm, galleryImages: JSON.stringify(updatedArr) });
+                                }
+                              }}
+                              className="w-5 h-5 rounded bg-rose-50 hover:bg-rose-100 dark:bg-rose-950/20 text-rose-500 text-xs flex items-center justify-center cursor-pointer border-none"
+                            >
+                              ✕
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="border-t border-neutral-150 dark:border-neutral-800 pt-4">
+                    <h5 className="font-extrabold text-xs text-neutral-800 dark:text-neutral-200 mb-3">Upload New Gallery Image</h5>
+                    <div className="flex gap-4 items-center">
+                      <input 
+                        type="file" 
+                        accept="image/*"
+                        onChange={async (e) => {
+                          const file = e.target.files?.[0];
+                          if (!file) return;
+
+                          if (file.size > 5 * 1024 * 1024) {
+                            alert("File size exceeds 5MB");
+                            return;
+                          }
+
+                          const reader = new FileReader();
+                          reader.onload = (event) => {
+                            const imageObj = new Image();
+                            imageObj.onload = async () => {
+                              const canvas = document.createElement('canvas');
+                              let width = imageObj.width;
+                              let height = imageObj.height;
+                              const MAX_WIDTH = 1000;
+                              if (width > MAX_WIDTH) {
+                                height = Math.round((height * MAX_WIDTH) / width);
+                                width = MAX_WIDTH;
+                              }
+                              canvas.width = width;
+                              canvas.height = height;
+                              const ctx = canvas.getContext('2d');
+                              ctx?.drawImage(imageObj, 0, 0, width, height);
+
+                              const base64 = canvas.toDataURL('image/jpeg', 0.75).split(',')[1];
+                              const uploadRes = await fetch('/api/cms/upload', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({
+                                  filename: file.name,
+                                  type: 'image/jpeg',
+                                  base64
+                                })
+                              });
+                              const uploadData = await uploadRes.json();
+                              if (uploadData.success && uploadData.url) {
+                                const currentArr = JSON.parse(cmsForm.galleryImages || '[]');
+                                currentArr.push({
+                                  id: 'GAL-' + Date.now(),
+                                  url: uploadData.url,
+                                  caption: file.name.substring(0, file.name.lastIndexOf('.'))
+                                });
+                                setCmsForm({ ...cmsForm, galleryImages: JSON.stringify(currentArr) });
+                                e.target.value = '';
+                              }
+                            };
+                            imageObj.src = event.target?.result as string;
+                          };
+                          reader.readAsDataURL(file);
+                        }}
+                        className="text-xs"
+                      />
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {cmsSubTab === 'menu_card' && (
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-xs font-bold text-neutral-500 mb-1">Menu Card Title</label>
+                    <input 
+                      type="text" 
+                      value={cmsForm.menuCardTitle || ''} 
+                      onChange={(e) => setCmsForm({...cmsForm, menuCardTitle: e.target.value})}
+                      className="w-full px-3 py-2.5 rounded-xl border border-neutral-300 dark:border-neutral-755 bg-neutral-50 dark:bg-neutral-800 text-xs font-semibold outline-none"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold text-neutral-500 mb-1">Description</label>
+                    <textarea 
+                      rows={3} 
+                      value={cmsForm.menuCardDescription || ''} 
+                      onChange={(e) => setCmsForm({...cmsForm, menuCardDescription: e.target.value})}
+                      className="w-full px-3 py-2.5 rounded-xl border border-neutral-300 dark:border-neutral-755 bg-neutral-50 dark:bg-neutral-800 text-xs font-semibold outline-none"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold text-neutral-500 mb-1">Menu Card Cover Image</label>
+                    <div className="flex gap-4 items-center">
+                      <input 
+                        type="text" 
+                        value={cmsForm.menuCardCoverImage || ''} 
+                        onChange={(e) => setCmsForm({...cmsForm, menuCardCoverImage: e.target.value})}
+                        className="flex-1 px-3 py-2.5 rounded-xl border border-neutral-300 dark:border-neutral-755 bg-neutral-50 dark:bg-neutral-800 text-xs font-semibold outline-none"
+                      />
+                      <input 
+                        type="file" 
+                        accept="image/*"
+                        onChange={(e) => handleFileUpload(e, 'menuCardCoverImage')}
+                        className="text-xs"
+                      />
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold text-neutral-500 mb-1">Menu Card PDF File Link</label>
+                    <div className="flex gap-4 items-center">
+                      <input 
+                        type="text" 
+                        value={cmsForm.menuPdfUrl || ''} 
+                        onChange={(e) => setCmsForm({...cmsForm, menuPdfUrl: e.target.value})}
+                        className="flex-1 px-3 py-2.5 rounded-xl border border-neutral-300 dark:border-neutral-755 bg-neutral-50 dark:bg-neutral-800 text-xs font-semibold outline-none"
+                      />
+                      <input 
+                        type="file" 
+                        accept="application/pdf"
+                        onChange={(e) => handleFileUpload(e, 'menuPdfUrl')}
+                        className="text-xs"
+                      />
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {cmsSubTab === 'footer' && (
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-xs font-bold text-neutral-500 mb-1">Footer Description</label>
+                    <textarea 
+                      rows={3} 
+                      value={cmsForm.footerDescription || ''} 
+                      onChange={(e) => setCmsForm({...cmsForm, footerDescription: e.target.value})}
+                      className="w-full px-3 py-2.5 rounded-xl border border-neutral-300 dark:border-neutral-755 bg-neutral-50 dark:bg-neutral-800 text-xs font-semibold outline-none"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold text-neutral-500 mb-1">Copyright Line</label>
+                    <input 
+                      type="text" 
+                      value={cmsForm.footerCopyright || ''} 
+                      onChange={(e) => setCmsForm({...cmsForm, footerCopyright: e.target.value})}
+                      className="w-full px-3 py-2.5 rounded-xl border border-neutral-300 dark:border-neutral-755 bg-neutral-50 dark:bg-neutral-800 text-xs font-semibold outline-none"
+                    />
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-xs font-bold text-neutral-500 mb-1">Facebook URL</label>
+                      <input 
+                        type="text" 
+                        value={cmsForm.facebookLink || ''} 
+                        onChange={(e) => setCmsForm({...cmsForm, facebookLink: e.target.value})}
+                        className="w-full px-3 py-2.5 rounded-xl border border-neutral-300 dark:border-neutral-755 bg-neutral-50 dark:bg-neutral-800 text-xs font-semibold outline-none"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold text-neutral-500 mb-1">Instagram URL</label>
+                      <input 
+                        type="text" 
+                        value={cmsForm.instagramLink || ''} 
+                        onChange={(e) => setCmsForm({...cmsForm, instagramLink: e.target.value})}
+                        className="w-full px-3 py-2.5 rounded-xl border border-neutral-300 dark:border-neutral-755 bg-neutral-50 dark:bg-neutral-800 text-xs font-semibold outline-none"
+                      />
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-3 gap-4">
+                    <div>
+                      <label className="block text-xs font-bold text-neutral-500 mb-1">YouTube URL</label>
+                      <input 
+                        type="text" 
+                        value={cmsForm.youtubeLink || ''} 
+                        onChange={(e) => setCmsForm({...cmsForm, youtubeLink: e.target.value})}
+                        className="w-full px-3 py-2.5 rounded-xl border border-neutral-300 dark:border-neutral-755 bg-neutral-50 dark:bg-neutral-800 text-xs font-semibold outline-none"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold text-neutral-500 mb-1">Twitter URL</label>
+                      <input 
+                        type="text" 
+                        value={cmsForm.twitterLink || ''} 
+                        onChange={(e) => setCmsForm({...cmsForm, twitterLink: e.target.value})}
+                        className="w-full px-3 py-2.5 rounded-xl border border-neutral-300 dark:border-neutral-755 bg-neutral-50 dark:bg-neutral-800 text-xs font-semibold outline-none"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold text-neutral-500 mb-1">Website URL</label>
+                      <input 
+                        type="text" 
+                        value={cmsForm.websiteLink || ''} 
+                        onChange={(e) => setCmsForm({...cmsForm, websiteLink: e.target.value})}
+                        className="w-full px-3 py-2.5 rounded-xl border border-neutral-300 dark:border-neutral-755 bg-neutral-50 dark:bg-neutral-800 text-xs font-semibold outline-none"
+                      />
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {cmsSubTab === 'hours' && (
+                <div className="space-y-4">
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                    {['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'].map(day => (
+                      <div key={day}>
+                        <label className="block text-xs font-bold text-neutral-500 mb-1">{day}</label>
+                        <input 
+                          type="text" 
+                          value={cmsForm[`hours${day}`] || ''} 
+                          onChange={(e) => setCmsForm({...cmsForm, [`hours${day}`]: e.target.value})}
+                          className="w-full px-3 py-2.5 rounded-xl border border-neutral-300 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-800 text-xs font-semibold outline-none"
+                        />
+                      </div>
+                    ))}
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold text-neutral-500 mb-1">Holiday / Maintenance Notice</label>
+                    <input 
+                      type="text" 
+                      value={cmsForm.holidayNotice || ''} 
+                      onChange={(e) => setCmsForm({...cmsForm, holidayNotice: e.target.value})}
+                      className="w-full px-3 py-2.5 rounded-xl border border-neutral-300 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-800 text-xs font-semibold outline-none"
+                    />
+                  </div>
+                </div>
+              )}
+
+              {cmsSubTab === 'offers' && (
+                <div className="space-y-6">
+                  <div className="space-y-3">
+                    <h5 className="font-extrabold text-xs text-neutral-800 dark:text-neutral-200">Current Promotions &amp; Banners</h5>
+                    <div className="space-y-2">
+                      {JSON.parse(cmsForm.offersList || '[]').map((off: any, idx: number, arr: any[]) => (
+                        <div key={off.id} className="flex gap-4 border border-neutral-200 dark:border-neutral-800 p-4 rounded-2xl bg-neutral-50/50 dark:bg-neutral-850/15 justify-between items-start">
+                          <div className="flex gap-3 items-start">
+                            <img src={off.image || '/tandoori_chicken.png'} alt={off.title} className="w-14 h-14 rounded-xl object-cover border border-neutral-200 dark:border-neutral-750 mt-0.5" />
+                            <div className="space-y-1">
+                              <div className="flex items-center gap-2">
+                                <span className={`text-[9px] px-2 py-0.5 rounded font-black ${off.isActive ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-400' : 'bg-neutral-100 text-neutral-400'}`}>
+                                  {off.isActive ? 'ACTIVE' : 'INACTIVE'}
+                                </span>
+                                {off.couponCode && <span className="font-mono text-[9px] font-black text-[#F4B400] bg-[#F4B400]/10 px-1.5 py-0.5 rounded border border-[#F4B400]/20">{off.couponCode}</span>}
+                              </div>
+                              <h6 className="font-black text-neutral-850 dark:text-neutral-100 text-xs uppercase leading-tight">{off.title}</h6>
+                              <p className="text-[10px] text-neutral-500 leading-normal">{off.description}</p>
+                            </div>
+                          </div>
+
+                          <div className="flex gap-2">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const updatedArr = [...arr];
+                                updatedArr[idx] = { ...off, isActive: !off.isActive };
+                                setCmsForm({ ...cmsForm, offersList: JSON.stringify(updatedArr) });
+                              }}
+                              className="px-2.5 py-1 rounded bg-neutral-100 hover:bg-neutral-200 dark:bg-neutral-800 dark:hover:bg-neutral-700 text-[10px] font-bold cursor-pointer border-none"
+                            >
+                              Toggle
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                if (confirm('Are you sure you want to delete this offer?')) {
+                                  const updatedArr = arr.filter((_, i) => i !== idx);
+                                  setCmsForm({ ...cmsForm, offersList: JSON.stringify(updatedArr) });
+                                }
+                              }}
+                              className="px-2.5 py-1 rounded bg-rose-50 hover:bg-rose-100 dark:bg-rose-950/20 text-rose-500 text-[10px] font-bold cursor-pointer border-none"
+                            >
+                              Delete
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="border-t border-neutral-150 dark:border-neutral-800 pt-4 space-y-4">
+                    <h5 className="font-extrabold text-xs text-neutral-800 dark:text-neutral-200">Create New Promotion Banner</h5>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-[10px] font-bold text-neutral-500 mb-0.5">Offer Title</label>
+                        <input 
+                          type="text" 
+                          value={newOffer.title}
+                          onChange={(e) => setNewOffer({...newOffer, title: e.target.value})}
+                          className="w-full px-2 py-1.5 rounded border border-neutral-300 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-800 text-xs outline-none text-neutral-800 dark:text-white font-bold"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[10px] font-bold text-neutral-500 mb-0.5">Coupon Code (Optional)</label>
+                        <input 
+                          type="text" 
+                          value={newOffer.couponCode}
+                          onChange={(e) => setNewOffer({...newOffer, couponCode: e.target.value})}
+                          className="w-full px-2 py-1.5 rounded border border-neutral-300 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-800 text-xs outline-none text-neutral-800 dark:text-white font-bold"
+                        />
+                      </div>
+                    </div>
+                    <div>
+                      <label className="block text-[10px] font-bold text-neutral-500 mb-0.5">Offer Description</label>
+                      <input 
+                        type="text" 
+                        value={newOffer.description}
+                        onChange={(e) => setNewOffer({...newOffer, description: e.target.value})}
+                        className="w-full px-2 py-1.5 rounded border border-neutral-300 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-800 text-xs outline-none text-neutral-800 dark:text-white font-bold"
+                      />
+                    </div>
+                    <div className="flex gap-4 items-center">
+                      <div className="flex-1">
+                        <label className="block text-[10px] font-bold text-neutral-500 mb-0.5">Banner Image URL</label>
+                        <input 
+                          type="text" 
+                          value={newOffer.image}
+                          onChange={(e) => setNewOffer({...newOffer, image: e.target.value})}
+                          className="w-full px-2 py-1.5 rounded border border-neutral-300 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-800 text-xs outline-none text-neutral-800 dark:text-white font-bold"
+                        />
+                      </div>
+                      <div className="pt-4">
+                        <input 
+                          type="file" 
+                          accept="image/*"
+                          onChange={async (e) => {
+                            const file = e.target.files?.[0];
+                            if (!file) return;
+
+                            if (file.size > 5 * 1024 * 1024) {
+                              alert("File size exceeds 5MB");
+                              return;
+                            }
+
+                            const reader = new FileReader();
+                            reader.onload = (event) => {
+                              const imageObj = new Image();
+                              imageObj.onload = async () => {
+                                const canvas = document.createElement('canvas');
+                                let width = imageObj.width;
+                                let height = imageObj.height;
+                                const MAX_WIDTH = 1000;
+                                if (width > MAX_WIDTH) {
+                                  height = Math.round((height * MAX_WIDTH) / width);
+                                  width = MAX_WIDTH;
+                                }
+                                canvas.width = width;
+                                canvas.height = height;
+                                const ctx = canvas.getContext('2d');
+                                ctx?.drawImage(imageObj, 0, 0, width, height);
+
+                                const base64 = canvas.toDataURL('image/jpeg', 0.75).split(',')[1];
+                                const uploadRes = await fetch('/api/cms/upload', {
+                                  method: 'POST',
+                                  headers: { 'Content-Type': 'application/json' },
+                                  body: JSON.stringify({
+                                    filename: file.name,
+                                    type: 'image/jpeg',
+                                    base64
+                                  })
+                                });
+                                const uploadData = await uploadRes.json();
+                                if (uploadData.success && uploadData.url) {
+                                  setNewOffer(prev => ({ ...prev, image: uploadData.url }));
+                                }
+                              };
+                              imageObj.src = event.target?.result as string;
+                            };
+                            reader.readAsDataURL(file);
+                          }}
+                          className="text-xs"
+                        />
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (!newOffer.title || !newOffer.description) {
+                          alert('Title and description are required');
+                          return;
+                        }
+                        const currentArr = JSON.parse(cmsForm.offersList || '[]');
+                        currentArr.push({
+                          id: 'OFF-' + Date.now(),
+                          ...newOffer
+                        });
+                        setCmsForm({ ...cmsForm, offersList: JSON.stringify(currentArr) });
+                        setNewOffer({ title: '', description: '', image: '', couponCode: '', isActive: true });
+                      }}
+                      className="px-4 py-2 bg-maroon text-white dark:bg-saffron dark:text-maroon font-bold text-xs rounded-xl shadow cursor-pointer border-none"
+                    >
+                      Create Promo
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {cmsSubTab === 'popup' && (
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between border-b pb-3 mb-2 dark:border-neutral-800">
+                    <div>
+                      <span className="text-xs font-bold text-neutral-800 dark:text-neutral-100">Enable Popup Alert Notice</span>
+                      <p className="text-[10px] text-neutral-450">Displays a floating alert modal overlay to first-time landing guests.</p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setCmsForm({ ...cmsForm, popupEnabled: !cmsForm.popupEnabled })}
+                      className="border-none bg-transparent cursor-pointer"
+                    >
+                      {cmsForm.popupEnabled ? (
+                        <ToggleRight className="w-10 h-10 text-maroon dark:text-saffron" />
+                      ) : (
+                        <ToggleLeft className="w-10 h-10 text-neutral-450" />
+                      )}
+                    </button>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold text-neutral-500 mb-1">Popup Notice Title</label>
+                    <input 
+                      type="text" 
+                      value={cmsForm.popupTitle || ''} 
+                      onChange={(e) => setCmsForm({...cmsForm, popupTitle: e.target.value})}
+                      className="w-full px-3 py-2.5 rounded-xl border border-neutral-300 dark:border-neutral-755 bg-neutral-50 dark:bg-neutral-800 text-xs font-semibold outline-none"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold text-neutral-500 mb-1">Description / Content</label>
+                    <textarea 
+                      rows={3} 
+                      value={cmsForm.popupDescription || ''} 
+                      onChange={(e) => setCmsForm({...cmsForm, popupDescription: e.target.value})}
+                      className="w-full px-3 py-2.5 rounded-xl border border-neutral-300 dark:border-neutral-755 bg-neutral-50 dark:bg-neutral-800 text-xs font-semibold outline-none"
+                    />
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-xs font-bold text-neutral-500 mb-1">Popup Banner Image</label>
+                      <div className="flex gap-4 items-center">
+                        <input 
+                          type="text" 
+                          value={cmsForm.popupImage || ''} 
+                          onChange={(e) => setCmsForm({...cmsForm, popupImage: e.target.value})}
+                          className="flex-1 px-3 py-2.5 rounded-xl border border-neutral-300 dark:border-neutral-755 bg-neutral-50 dark:bg-neutral-800 text-xs font-semibold outline-none"
+                        />
+                        <input 
+                          type="file" 
+                          accept="image/*"
+                          onChange={(e) => handleFileUpload(e, 'popupImage')}
+                          className="text-xs"
+                        />
+                      </div>
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold text-neutral-500 mb-1">Popup Action Button Text</label>
+                      <input 
+                        type="text" 
+                        value={cmsForm.popupButtonText || ''} 
+                        onChange={(e) => setCmsForm({...cmsForm, popupButtonText: e.target.value})}
+                        placeholder="e.g. Order Now, Explore Menu"
+                        className="w-full px-3 py-2.5 rounded-xl border border-neutral-300 dark:border-neutral-755 bg-neutral-50 dark:bg-neutral-800 text-xs font-semibold outline-none"
+                      />
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {cmsSubTab === 'seo' && (
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-xs font-bold text-neutral-500 mb-1">Website Browser Title (Tab name)</label>
+                    <input 
+                      type="text" 
+                      value={cmsForm.seoTitle || ''} 
+                      onChange={(e) => setCmsForm({...cmsForm, seoTitle: e.target.value})}
+                      className="w-full px-3 py-2.5 rounded-xl border border-neutral-300 dark:border-neutral-755 bg-neutral-50 dark:bg-neutral-800 text-xs font-semibold outline-none"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold text-neutral-500 mb-1">Meta Keywords</label>
+                    <input 
+                      type="text" 
+                      value={cmsForm.seoMetaKeywords || ''} 
+                      onChange={(e) => setCmsForm({...cmsForm, seoMetaKeywords: e.target.value})}
+                      placeholder="comma-separated tags: restaurant, ac, food, near me"
+                      className="w-full px-3 py-2.5 rounded-xl border border-neutral-300 dark:border-neutral-755 bg-neutral-50 dark:bg-neutral-800 text-xs font-semibold outline-none"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold text-neutral-500 mb-1">Meta Description (Search engine summary snippet)</label>
+                    <textarea 
+                      rows={3} 
+                      value={cmsForm.seoMetaDescription || ''} 
+                      onChange={(e) => setCmsForm({...cmsForm, seoMetaDescription: e.target.value})}
+                      className="w-full px-3 py-2.5 rounded-xl border border-neutral-300 dark:border-neutral-755 bg-neutral-50 dark:bg-neutral-800 text-xs font-semibold outline-none"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold text-neutral-500 mb-1">Social Preview Card OG Image</label>
+                    <div className="flex gap-4 items-center">
+                      <input 
+                        type="text" 
+                        value={cmsForm.seoOgImage || ''} 
+                        onChange={(e) => setCmsForm({...cmsForm, seoOgImage: e.target.value})}
+                        className="flex-1 px-3 py-2.5 rounded-xl border border-neutral-300 dark:border-neutral-755 bg-neutral-50 dark:bg-neutral-800 text-xs font-semibold outline-none"
+                      />
+                      <input 
+                        type="file" 
+                        accept="image/*"
+                        onChange={(e) => handleFileUpload(e, 'seoOgImage')}
+                        className="text-xs"
+                      />
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {cmsSubTab === 'theme' && (
+                <div className="space-y-4">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-xs font-bold text-neutral-500 mb-1">Header Brand Logo</label>
+                      <div className="flex gap-4 items-center">
+                        <input 
+                          type="text" 
+                          value={cmsForm.restaurantLogo || ''} 
+                          onChange={(e) => setCmsForm({...cmsForm, restaurantLogo: e.target.value})}
+                          className="flex-1 px-3 py-2.5 rounded-xl border border-neutral-300 dark:border-neutral-755 bg-neutral-50 dark:bg-neutral-800 text-xs font-semibold outline-none"
+                        />
+                        <input 
+                          type="file" 
+                          accept="image/*"
+                          onChange={(e) => handleFileUpload(e, 'restaurantLogo')}
+                          className="text-xs"
+                        />
+                      </div>
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold text-neutral-500 mb-1">Website Browser Favicon</label>
+                      <div className="flex gap-4 items-center">
+                        <input 
+                          type="text" 
+                          value={cmsForm.favicon || ''} 
+                          onChange={(e) => setCmsForm({...cmsForm, favicon: e.target.value})}
+                          className="flex-1 px-3 py-2.5 rounded-xl border border-neutral-300 dark:border-neutral-755 bg-neutral-50 dark:bg-neutral-800 text-xs font-semibold outline-none"
+                        />
+                        <input 
+                          type="file" 
+                          accept="image/*"
+                          onChange={(e) => handleFileUpload(e, 'favicon')}
+                          className="text-xs"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {cmsSubTab === 'versions' && (
+                <div className="space-y-4">
+                  <h4 className="font-extrabold text-neutral-850 dark:text-neutral-200 text-xs uppercase tracking-wider">Save History logs</h4>
+                  {cmsVersions.length === 0 ? (
+                    <div className="p-8 border dark:border-neutral-800 rounded-2xl text-center text-xs text-neutral-500">
+                      No saved versions found. Save changes to create logs.
+                    </div>
+                  ) : (
+                    <div className="border border-neutral-200 dark:border-neutral-800 rounded-2xl overflow-hidden bg-neutral-50/50 dark:bg-neutral-850/10">
+                      <table className="w-full border-collapse text-left text-xs font-semibold">
+                        <thead>
+                          <tr className="bg-neutral-100 dark:bg-neutral-800 text-neutral-500 font-bold uppercase tracking-wider border-b border-neutral-200 dark:border-neutral-700">
+                            <th className="p-3">Version ID</th>
+                            <th className="p-3">Saved By</th>
+                            <th className="p-3">Timestamp</th>
+                            <th className="p-3 text-right">Actions</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {cmsVersions.map((v, i) => (
+                            <tr key={v.id} className="border-b border-neutral-200 dark:border-neutral-800 hover:bg-neutral-100/50 dark:hover:bg-neutral-900/30">
+                              <td className="p-3 font-bold text-neutral-800 dark:text-neutral-200">
+                                #{v.id} {i === 0 && <span className="ml-1 text-[9px] bg-[#F4B400]/20 text-[#F4B400] font-black px-1.5 py-0.5 rounded">LATEST</span>}
+                              </td>
+                              <td className="p-3 text-neutral-500 font-mono">{v.author}</td>
+                              <td className="p-3 text-neutral-500">{new Date(v.createdAt).toLocaleString()}</td>
+                              <td className="p-3 text-right">
+                                <button
+                                  type="button"
+                                  onClick={async () => {
+                                    if (confirm(`Are you sure you want to restore the website to Version #${v.id}?`)) {
+                                      setCmsSaving(true);
+                                      const success = await restoreCmsVersion(v.id);
+                                      setCmsSaving(false);
+                                      if (success) {
+                                        alert(`Website content restored successfully to version #${v.id}!`);
+                                      } else {
+                                        alert('Failed to restore version.');
+                                      }
+                                    }
+                                  }}
+                                  className="px-3 py-1.5 rounded-lg bg-[#F4B400]/10 hover:bg-[#F4B400]/25 text-[#F4B400] font-bold text-[10px] cursor-pointer border-none"
+                                >
+                                  Restore Version
+                                </button>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Action Buttons */}
+              {cmsSubTab !== 'versions' && (
+                <div className="flex justify-end gap-3 pt-4 border-t border-neutral-150 dark:border-neutral-800">
+                  <button 
+                    type="button"
+                    onClick={() => setCmsForm(cmsSettings)}
+                    className="px-4 py-2.5 rounded-xl border border-neutral-350 dark:border-neutral-700 text-neutral-700 dark:text-neutral-300 font-bold text-xs cursor-pointer hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-all"
+                  >
+                    Cancel changes
+                  </button>
+                  <button 
+                    type="submit"
+                    disabled={cmsSaving}
+                    className="px-5 py-2.5 rounded-xl bg-maroon text-white dark:bg-saffron dark:text-maroon font-logo font-bold text-xs shadow-md cursor-pointer hover:opacity-90 disabled:opacity-50 transition-all"
+                  >
+                    {cmsSaving ? 'Saving...' : 'Save & Publish Live'}
+                  </button>
+                </div>
+              )}
+
+            </form>
           </div>
 
         </div>

@@ -1,12 +1,13 @@
 import React, { useState, useEffect } from 'react';
+import { useApp } from '../context/AppContext';
 
 interface GalleryItem {
-  id: number;
+  id: string | number;
   src: string;
   alt: string;
 }
 
-const GALLERY_IMAGES: GalleryItem[] = [
+const FALLBACK_IMAGES: GalleryItem[] = [
   {
     id: 1,
     src: '/gallery_0.jpg',
@@ -34,33 +35,60 @@ const GALLERY_IMAGES: GalleryItem[] = [
   }
 ];
 
-// Append first two items to the end to allow seamless infinite loop with 2 items per view
-const DISPLAY_IMAGES = [...GALLERY_IMAGES, GALLERY_IMAGES[0], GALLERY_IMAGES[1]];
-
 const GallerySection: React.FC = () => {
+  const { cmsSettings } = useApp();
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isTransitioning, setIsTransitioning] = useState(true);
 
+  const galleryList = React.useMemo(() => {
+    if (cmsSettings?.galleryImages) {
+      try {
+        const parsed = JSON.parse(cmsSettings.galleryImages);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          return parsed.map((item: any) => ({
+            id: item.id || Math.random().toString(),
+            src: item.url || '/tandoori_chicken.png',
+            alt: item.caption || ''
+          }));
+        }
+      } catch (e) {
+        console.error('Failed to parse gallery images JSON:', e);
+      }
+    }
+    return FALLBACK_IMAGES;
+  }, [cmsSettings?.galleryImages]);
+
+  // Append first two items to the end to allow seamless infinite loop with 2 items per view
+  const displayImages = React.useMemo(() => {
+    if (galleryList.length === 0) return [];
+    if (galleryList.length === 1) return [galleryList[0], galleryList[0]];
+    return [...galleryList, galleryList[0], galleryList[1]];
+  }, [galleryList]);
+
   // Interval timer - restarts whenever currentIndex changes to prevent overlapping animations
   useEffect(() => {
+    if (galleryList.length <= 1) return;
     const interval = setInterval(() => {
       setIsTransitioning(true);
       setCurrentIndex(prev => prev + 1);
     }, 5000); // Slide every 5 seconds
     
     return () => clearInterval(interval);
-  }, [currentIndex]);
+  }, [currentIndex, galleryList.length]);
 
   // Reset index to 0 after transitioning past the last original slide to achieve an infinite loop
   useEffect(() => {
-    if (currentIndex === GALLERY_IMAGES.length) {
+    if (galleryList.length <= 1) return;
+    if (currentIndex === galleryList.length) {
       const timer = setTimeout(() => {
         setIsTransitioning(false);
         setCurrentIndex(0);
       }, 700); // Matches the transition-transform duration
       return () => clearTimeout(timer);
     }
-  }, [currentIndex]);
+  }, [currentIndex, galleryList.length]);
+
+  if (galleryList.length === 0) return null;
 
   return (
     <div className="w-full space-y-6">
@@ -68,7 +96,7 @@ const GallerySection: React.FC = () => {
       {/* Title */}
       <div>
         <h2 className="font-logo font-extrabold text-2xl text-maroon dark:text-saffron">Restaurant Gallery</h2>
-        <p className="text-xs text-neutral-500 dark:text-neutral-400">Take a visual tour of our premium dining hall, reception POS desks, and restaurant facade</p>
+        <p className="text-xs text-neutral-500 dark:text-neutral-400">Take a visual tour of our premium dining hall, dishes, and restaurant layout</p>
       </div>
 
       {/* Carousel Wrapper */}
@@ -83,13 +111,13 @@ const GallerySection: React.FC = () => {
         <div 
           className={`flex ${isTransitioning ? 'transition-transform duration-700 ease-in-out' : ''}`}
           style={{
-            transform: `translateX(-${currentIndex * 50}%)`
+            transform: `translateX(-${currentIndex * (galleryList.length === 1 ? 100 : 50)}%)`
           }}
         >
-          {DISPLAY_IMAGES.map((image, idx) => (
+          {displayImages.map((image, idx) => (
             <div 
               key={`${image.id}-${idx}`} 
-              className="w-1/2 flex-shrink-0 px-2 sm:px-3"
+              className={`${galleryList.length === 1 ? 'w-full' : 'w-1/2'} flex-shrink-0 px-2 sm:px-3`}
             >
               <div className="h-32 sm:h-44 md:h-52 lg:h-60 rounded-2xl overflow-hidden border border-neutral-200/50 dark:border-neutral-800/60 relative shadow-md bg-neutral-900 group">
                 <img 
@@ -99,12 +127,14 @@ const GallerySection: React.FC = () => {
                 />
                 
                 {/* Premium floating glassmorphic caption overlay */}
-                <div className="absolute inset-x-2 bottom-2 sm:inset-x-3 sm:bottom-3 bg-neutral-950/70 backdrop-blur-md border border-white/10 rounded-xl p-2 sm:p-3 text-white pointer-events-none select-none">
-                  <span className="text-[7px] sm:text-[9px] font-bold text-saffron uppercase tracking-widest mb-0.5 block">Gallery Tour</span>
-                  <p className="text-[9px] sm:text-xs font-semibold leading-normal sm:leading-relaxed drop-shadow-md line-clamp-2">
-                    {image.alt}
-                  </p>
-                </div>
+                {image.alt && (
+                  <div className="absolute inset-x-2 bottom-2 sm:inset-x-3 sm:bottom-3 bg-neutral-950/70 backdrop-blur-md border border-white/10 rounded-xl p-2 sm:p-3 text-white pointer-events-none select-none">
+                    <span className="text-[7px] sm:text-[9px] font-bold text-saffron uppercase tracking-widest mb-0.5 block">Gallery Tour</span>
+                    <p className="text-[9px] sm:text-xs font-semibold leading-normal sm:leading-relaxed drop-shadow-md line-clamp-2">
+                      {image.alt}
+                    </p>
+                  </div>
+                )}
               </div>
             </div>
           ))}
@@ -113,27 +143,28 @@ const GallerySection: React.FC = () => {
       </div>
 
       {/* Dot Indicators */}
-      <div className="flex justify-center items-center gap-2.5 pt-2 select-none">
-        {GALLERY_IMAGES.map((_, idx) => {
-          // Highlight active dot (maps index 5 back to 0)
-          const isActive = idx === (currentIndex % GALLERY_IMAGES.length);
-          return (
-            <button
-              key={idx}
-              onClick={() => {
-                setIsTransitioning(true);
-                setCurrentIndex(idx);
-              }}
-              className={`h-2.5 rounded-full transition-all duration-300 ${
-                isActive 
-                  ? 'w-7 bg-maroon dark:bg-saffron shadow-[0_0_10px_rgba(245,158,11,0.35)]' 
-                  : 'w-2.5 bg-neutral-350 dark:bg-neutral-850 hover:bg-neutral-400 dark:hover:bg-neutral-750'
-              }`}
-              title={`Go to slide ${idx + 1}`}
-            />
-          );
-        })}
-      </div>
+      {galleryList.length > 1 && (
+        <div className="flex justify-center items-center gap-2.5 pt-2 select-none">
+          {galleryList.map((_, idx) => {
+            const isActive = idx === (currentIndex % galleryList.length);
+            return (
+              <button
+                key={idx}
+                onClick={() => {
+                  setIsTransitioning(true);
+                  setCurrentIndex(idx);
+                }}
+                className={`h-2.5 rounded-full transition-all duration-300 ${
+                  isActive 
+                    ? 'w-7 bg-maroon dark:bg-saffron shadow-[0_0_10px_rgba(245,158,11,0.35)]' 
+                    : 'w-2.5 bg-neutral-350 dark:bg-neutral-850 hover:bg-neutral-400 dark:hover:bg-neutral-750'
+                }`}
+                title={`Go to slide ${idx + 1}`}
+              />
+            );
+          })}
+        </div>
+      )}
 
     </div>
   );

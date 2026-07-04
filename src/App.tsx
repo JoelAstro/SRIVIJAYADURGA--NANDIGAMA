@@ -6,7 +6,7 @@ import AdminDashboard from './pages/AdminDashboard';
 import { Sun, Moon, ChefHat, ShieldAlert, UtensilsCrossed } from 'lucide-react';
 
 const AppContent: React.FC = () => {
-  const { theme, setTheme, activeTable, adminSession, kitchenSession, bgImage, setBgImage, orders, tables } = useApp();
+  const { theme, setTheme, activeTable, adminSession, kitchenSession, bgImage, setBgImage, orders, tables, cmsSettings } = useApp();
   const [currentView, setCurrentView] = useState<string>('customer'); // 'customer' | 'kitchen' | 'admin'
   const [activeTab, setActiveTab] = useState<string>('home'); // 'home' | 'booking' | 'menu' | 'parcels'
 
@@ -109,12 +109,20 @@ const AppContent: React.FC = () => {
             className="flex items-center gap-1.5 sm:gap-2 cursor-pointer select-none"
             onClick={() => navigateTo('#home')}
           >
-            <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-maroon dark:bg-saffron flex items-center justify-center text-white dark:text-maroon shadow-md flex-shrink-0">
-              <UtensilsCrossed className="w-4 h-4 sm:w-5 sm:h-5 animate-pulse" />
-            </div>
+            {cmsSettings?.restaurantLogo ? (
+              <img src={cmsSettings.restaurantLogo} alt="Restaurant Logo" className="w-8 h-8 sm:w-10 sm:h-10 rounded-full object-cover shadow-md flex-shrink-0" />
+            ) : (
+              <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-maroon dark:bg-saffron flex items-center justify-center text-white dark:text-maroon shadow-md flex-shrink-0">
+                <UtensilsCrossed className="w-4 h-4 sm:w-5 sm:h-5 animate-pulse" />
+              </div>
+            )}
             <div className="min-w-0">
-              <h1 className="font-logo font-extrabold text-sm sm:text-lg leading-tight text-maroon dark:text-saffron truncate">Sri Vijaya Durga</h1>
-              <p className="text-[9px] sm:text-xs uppercase tracking-widest text-saffron dark:text-maroon/70 font-semibold font-logo truncate hidden xs:block">Family AC Restaurant</p>
+              <h1 className="font-logo font-extrabold text-sm sm:text-lg leading-tight text-maroon dark:text-saffron truncate">
+                {cmsSettings?.restaurantName || 'Sri Vijaya Durga'}
+              </h1>
+              <p className="text-[9px] sm:text-xs uppercase tracking-widest text-saffron dark:text-maroon/70 font-semibold font-logo truncate hidden xs:block">
+                {cmsSettings?.restaurantTagline || 'Family AC Restaurant'}
+              </p>
             </div>
           </div>
 

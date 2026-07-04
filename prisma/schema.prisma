@@ -88,3 +88,10 @@ model Rating {
   comment       String?
   timestamp     Float
 }
+
+model CmsVersion {
+  id        Int      @id @default(autoincrement())
+  content   String   // The entire settings JSON payload
+  author    String   // Admin email who saved it
+  createdAt DateTime @default(now())
+}
