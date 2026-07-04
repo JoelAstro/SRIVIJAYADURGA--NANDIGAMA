@@ -12,7 +12,7 @@ export interface ParcelItem {
   id: number;
   name: string;
   price: number;
-  category: 'Couple Pack' | 'Family Pack' | 'Bucket Biryani';
+  category: string;
   type: 'veg' | 'non-veg';
   image: string;
   description: string;
@@ -1079,7 +1079,7 @@ export const PARCEL_ITEMS: ParcelItem[] = [
   // === COUPLE PACKS ===
   {
     id: 201,
-    name: "Chicken Dum Biryani (Couple)",
+    name: "Chicken Dum Biryani",
     price: 360,
     category: "Couple Pack",
     type: "non-veg",
@@ -1088,7 +1088,7 @@ export const PARCEL_ITEMS: ParcelItem[] = [
   },
   {
     id: 202,
-    name: "Chicken Fry Biryani (Couple)",
+    name: "Chicken Fry Biryani",
     price: 370,
     category: "Couple Pack",
     type: "non-veg",
@@ -1097,7 +1097,7 @@ export const PARCEL_ITEMS: ParcelItem[] = [
   },
   {
     id: 203,
-    name: "Chicken B/L Fry Biryani (Couple)",
+    name: "Chicken Boneless Fry Biryani",
     price: 400,
     category: "Couple Pack",
     type: "non-veg",
@@ -1106,7 +1106,7 @@ export const PARCEL_ITEMS: ParcelItem[] = [
   },
   {
     id: 204,
-    name: "Chicken Wings Biryani (Couple - Dry)",
+    name: "Chicken Wings Biryani (Dry)",
     price: 380,
     category: "Couple Pack",
     type: "non-veg",
@@ -1115,7 +1115,7 @@ export const PARCEL_ITEMS: ParcelItem[] = [
   },
   {
     id: 205,
-    name: "Chicken Wings Biryani (Couple - Semi Gravy)",
+    name: "Chicken Wings Biryani (Semi Gravy)",
     price: 400,
     category: "Couple Pack",
     type: "non-veg",
@@ -1124,7 +1124,7 @@ export const PARCEL_ITEMS: ParcelItem[] = [
   },
   {
     id: 206,
-    name: "Chicken Lollipop Biryani (Couple)",
+    name: "Chicken Lollipop Biryani",
     price: 400,
     category: "Couple Pack",
     type: "non-veg",
@@ -1133,7 +1133,7 @@ export const PARCEL_ITEMS: ParcelItem[] = [
   },
   {
     id: 207,
-    name: "Mutton Biryani (Couple)",
+    name: "Mutton Biryani",
     price: 500,
     category: "Couple Pack",
     type: "non-veg",
@@ -1142,18 +1142,27 @@ export const PARCEL_ITEMS: ParcelItem[] = [
   },
   {
     id: 208,
-    name: "Prawns Biryani (Couple)",
+    name: "Prawns Biryani",
     price: 460,
     category: "Couple Pack",
     type: "non-veg",
     image: "https://images.unsplash.com/photo-1565557623262-b51c2513a641?auto=format&fit=crop&q=80&w=300",
     description: "Biryani rice cooked with spicy marinated prawns and yogurt. Serves two."
   },
+  {
+    id: 209,
+    name: "Biryani Rice",
+    price: 260,
+    category: "Couple Pack",
+    type: "non-veg",
+    image: "https://images.unsplash.com/photo-1633945274405-b6c8069047b0?auto=format&fit=crop&q=80&w=300",
+    description: "Aromatic basmati rice cooked in special biryani stock without meat pieces."
+  },
 
   // === FAMILY PACKS ===
   {
     id: 301,
-    name: "Family Dum Biryani (Chicken)",
+    name: "Family Dum Biryani",
     price: 630,
     category: "Family Pack",
     type: "non-veg",
@@ -1162,12 +1171,21 @@ export const PARCEL_ITEMS: ParcelItem[] = [
   },
   {
     id: 302,
-    name: "Family Fry Biryani (Chicken)",
-    price: 680,
+    name: "Family Fry Biryani (Bone)",
+    price: 650,
     category: "Family Pack",
     type: "non-veg",
     image: "https://images.unsplash.com/photo-1626777552726-4a6b54c97e46?auto=format&fit=crop&q=80&w=300",
-    description: "Basmati biryani rice served with a large family pack of fried chicken. Serves 3-4."
+    description: "Basmati biryani rice served with a large family pack of fried chicken (Bone). Serves 3-4."
+  },
+  {
+    id: 308,
+    name: "Family Fry Biryani (BL)",
+    price: 700,
+    category: "Family Pack",
+    type: "non-veg",
+    image: "https://images.unsplash.com/photo-1626777552726-4a6b54c97e46?auto=format&fit=crop&q=80&w=300",
+    description: "Basmati biryani rice served with a large family pack of boneless fry chicken (BL). Serves 3-4."
   },
   {
     id: 303,
@@ -1189,7 +1207,7 @@ export const PARCEL_ITEMS: ParcelItem[] = [
   },
   {
     id: 305,
-    name: "Family Lollipop Biryani (Chicken)",
+    name: "Family Lollipop Biryani",
     price: 740,
     category: "Family Pack",
     type: "non-veg",
@@ -1198,7 +1216,7 @@ export const PARCEL_ITEMS: ParcelItem[] = [
   },
   {
     id: 306,
-    name: "Family Special Biryani (Chicken)",
+    name: "Family Special Biryani",
     price: 700,
     category: "Family Pack",
     type: "non-veg",
@@ -1213,6 +1231,98 @@ export const PARCEL_ITEMS: ParcelItem[] = [
     type: "non-veg",
     image: "https://images.unsplash.com/photo-1565557623262-b51c2513a641?auto=format&fit=crop&q=80&w=300",
     description: "Family portion of spiced prawns biryani. Serves 3-4."
+  },
+  {
+    id: 309,
+    name: "Family Special Veg Biryani",
+    price: 550,
+    category: "Family Pack",
+    type: "veg",
+    image: "https://images.unsplash.com/photo-1563379091339-03b21ab4a4f8?auto=format&fit=crop&q=80&w=300",
+    description: "Fragrant basmati rice cooked with seasonal vegetables and premium spices in family size. Serves 3-4."
+  },
+  {
+    id: 310,
+    name: "Family Special Paneer Biryani",
+    price: 590,
+    category: "Family Pack",
+    type: "veg",
+    image: "/paneer_tikka.png",
+    description: "Marinated cottage cheese chunks layered with slow-cooked family pack biryani. Serves 3-4."
+  },
+  {
+    id: 311,
+    name: "Family Special Mushroom Biryani",
+    price: 590,
+    category: "Family Pack",
+    type: "veg",
+    image: "https://images.unsplash.com/photo-1599487488170-d11ec9c172f0?auto=format&fit=crop&q=80&w=300",
+    description: "Fresh button mushrooms tossed in masala and cooked with family pack basmati rice. Serves 3-4."
+  },
+
+  // === SPECIALS ===
+  {
+    id: 501,
+    name: "SVD Special Biryani",
+    price: 460,
+    category: "Special Biryani",
+    type: "non-veg",
+    image: "/special_dum_biryani.png",
+    description: "Our signature chef special biryani prepared with a unique secret spice blend."
+  },
+  {
+    id: 502,
+    name: "Joint Chicken Biryani",
+    price: 300,
+    category: "Special Biryani",
+    type: "non-veg",
+    image: "/special_dum_biryani.png",
+    description: "Delicious dum biryani served with tandoori grilled chicken leg joints."
+  },
+  {
+    id: 503,
+    name: "Ulavacharu Chicken Biryani",
+    price: 330,
+    category: "Special Biryani",
+    type: "non-veg",
+    image: "https://images.unsplash.com/photo-1545247181-516773cae76d?auto=format&fit=crop&q=80&w=300",
+    description: "Biryani rice flavored with traditional Andhra horsegram soup and chicken."
+  },
+  {
+    id: 504,
+    name: "Mixed Non-Veg Biryani",
+    price: 420,
+    category: "Special Biryani",
+    type: "non-veg",
+    image: "/special_dum_biryani.png",
+    description: "A royal combination of chicken, mutton, and prawns cooked with basmati."
+  },
+  {
+    id: 505,
+    name: "Special Kunda Biryani",
+    price: 400,
+    category: "Special Biryani",
+    type: "non-veg",
+    image: "https://images.unsplash.com/photo-1545247181-516773cae76d?auto=format&fit=crop&q=80&w=300",
+    description: "Traditional claypot slow-cooked Kunda biryani loaded with rich rustic flavors."
+  },
+  {
+    id: 506,
+    name: "Arabian Biryani",
+    price: 440,
+    category: "Special Biryani",
+    type: "non-veg",
+    image: "https://images.unsplash.com/photo-1633945274405-b6c8069047b0?auto=format&fit=crop&q=80&w=300",
+    description: "Middle Eastern style slow-cooked rice layered with spiced tandoori meats."
+  },
+  {
+    id: 507,
+    name: "Tandoori Biryani",
+    price: 440,
+    category: "Special Biryani",
+    type: "non-veg",
+    image: "/tandoori_chicken.png",
+    description: "Clay-oven baked smoky tandoori chicken chunks cooked inside flavorful biryani rice."
   },
 
   // === BUCKET BIRYANI ===

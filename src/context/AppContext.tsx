@@ -210,12 +210,42 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const [menuItems, setMenuItems] = useState<any[]>(() => {
     const stored = localStorage.getItem('svd_menu_items');
-    return stored ? JSON.parse(stored) : MENU_ITEMS;
+    if (!stored) return MENU_ITEMS;
+    try {
+      const parsed = JSON.parse(stored);
+      const merged = [...parsed];
+      MENU_ITEMS.forEach(defItem => {
+        const idx = merged.findIndex(i => i.id === defItem.id || i.name === defItem.name);
+        if (idx === -1) {
+          merged.push(defItem);
+        } else {
+          merged[idx] = { ...defItem, ...merged[idx], price: defItem.price, category: defItem.category, name: defItem.name };
+        }
+      });
+      return merged;
+    } catch {
+      return MENU_ITEMS;
+    }
   });
 
   const [parcelItems, setParcelItems] = useState<any[]>(() => {
     const stored = localStorage.getItem('svd_parcel_items');
-    return stored ? JSON.parse(stored) : PARCEL_ITEMS;
+    if (!stored) return PARCEL_ITEMS;
+    try {
+      const parsed = JSON.parse(stored);
+      const merged = [...parsed];
+      PARCEL_ITEMS.forEach(defItem => {
+        const idx = merged.findIndex(i => i.id === defItem.id || i.name === defItem.name);
+        if (idx === -1) {
+          merged.push(defItem);
+        } else {
+          merged[idx] = { ...defItem, ...merged[idx], price: defItem.price, category: defItem.category, name: defItem.name };
+        }
+      });
+      return merged;
+    } catch {
+      return PARCEL_ITEMS;
+    }
   });
 
   const [activeTable, setActiveTable] = useState<string | null>(null);

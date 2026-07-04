@@ -35,7 +35,7 @@ const Clock: React.FC<{ className?: string }> = ({ className }) => (
 );
 
 const ParcelSection: React.FC = () => {
-  const { menuItems, setBgImage, orders, placeParcelOrder } = useApp();
+  const { menuItems, parcelItems, setBgImage, orders, placeParcelOrder } = useApp();
   const [selectedPack, setSelectedPack] = useState<string>('ALL');
 
   // Modal & Form State
@@ -75,13 +75,26 @@ const ParcelSection: React.FC = () => {
 
   const subtotal = takeawayCart.reduce((sum, c) => sum + c.price * c.quantity, 0);
 
+  const allTakeawayItems = [
+    ...menuItems,
+    ...parcelItems.map(item => {
+      if (item.category === 'Couple Pack') {
+        return { ...item, category: 'Couple Pack Biryani' };
+      }
+      if (item.category === 'Family Pack') {
+        return { ...item, category: 'Family Pack Biryani' };
+      }
+      return item;
+    })
+  ];
+
   const categoryOrder = [
     'Veg Biryani', 'Non-Veg Biryani', 'Veg Fried Rice', 'Non-Veg Fried Rice',
     'Veg Starters', 'Non-Veg Starters', 'Sea Food Starters', 'Egg Items',
-    'Tandoori Non-Veg', 'Tandoori Veg', 'Couple Pack', 'Family Pack', 'Bucket Biryani'
+    'Tandoori Non-Veg', 'Tandoori Veg', 'Couple Pack Biryani', 'Family Pack Biryani', 'Special Biryani', 'Bucket Biryani'
   ];
 
-  const uniqueCategories = Array.from(new Set(menuItems.map(item => item.category)));
+  const uniqueCategories = Array.from(new Set(allTakeawayItems.map(item => item.category)));
   const sortedCategories = uniqueCategories.sort((a, b) => {
     const idxA = categoryOrder.indexOf(a);
     const idxB = categoryOrder.indexOf(b);
@@ -94,7 +107,7 @@ const ParcelSection: React.FC = () => {
   const categories = ['ALL', ...sortedCategories];
 
   // Filter items
-  const filteredParcels = menuItems.filter(item => {
+  const filteredParcels = allTakeawayItems.filter(item => {
     return selectedPack === 'ALL' || item.category === selectedPack;
   });
 
