@@ -78,6 +78,7 @@ const ParcelSection: React.FC = () => {
   const [deliveryLat, setDeliveryLat] = React.useState<number | undefined>(undefined);
   const [deliveryLon, setDeliveryLon] = React.useState<number | undefined>(undefined);
   const [isLocating, setIsLocating] = React.useState(false);
+  const [showSuccessModal, setShowSuccessModal] = React.useState(false);
 
   // Address validation errors
   const [houseNoError, setHouseNoError] = React.useState('');
@@ -264,9 +265,9 @@ const ParcelSection: React.FC = () => {
         setTrackingOrderId(orderId);
         localStorage.setItem('svd_active_takeaway_order_id', orderId);
         
-        // Show success toast
-        setSuccessToast(`✓ Takeaway Order ${orderId} successfully placed and sent to kitchen!`);
-        setTimeout(() => setSuccessToast(null), 5000);
+        // Show success modal and close checkout modal
+        setShowSuccessModal(true);
+        setIsCartOpen(false);
 
         // Clear form and cart states
         setCustomerName('');
@@ -286,13 +287,11 @@ const ParcelSection: React.FC = () => {
         setDeliveryLon(undefined);
         setTakeawayCart([]);
       } else {
-        setErrorMsg('Unable to send order to kitchen. Please try again.');
+        setErrorMsg('Unable to place your order. Please try again.');
       }
     } catch (err: any) {
       console.error('[Takeaway Modal Submit] API execution failed:', err);
-      // Show exact backend error if available, otherwise fallback to generic message
-      const exactError = err.message || 'Unable to send order to kitchen. Please try again.';
-      setErrorMsg(exactError);
+      setErrorMsg('Unable to place your order. Please try again.');
     } finally {
       setIsSubmitting(false);
     }
@@ -407,7 +406,7 @@ const ParcelSection: React.FC = () => {
       
       {/* Live Order Tracker */}
       {trackingOrderId && (
-        <div className="relative overflow-hidden bg-gradient-to-r from-maroon/10 via-saffron/10 to-maroon/10 p-6 rounded-3xl border border-maroon/20 dark:border-saffron/30 z-10 glass shadow-md">
+        <div id="live-order-tracker" className="relative overflow-hidden bg-gradient-to-r from-maroon/10 via-saffron/10 to-maroon/10 p-6 rounded-3xl border border-maroon/20 dark:border-saffron/30 z-10 glass shadow-md">
           {trackedOrder ? (
             <div className="space-y-4">
               <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 border-b border-neutral-200/40 dark:border-neutral-800/40 pb-3">
@@ -798,47 +797,7 @@ const ParcelSection: React.FC = () => {
             </div>
 
             {/* Modal Body */}
-            {successOrderId ? (
-              <div className="p-6 text-center space-y-4">
-                <div className="w-12 h-12 rounded-full bg-emerald-100 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400 flex items-center justify-center mx-auto text-xl animate-pulse">
-                  ✓
-                </div>
-                <div className="space-y-1">
-                  <h4 className="font-logo font-extrabold text-sm text-neutral-850 dark:text-neutral-100">
-                    Order Placed Successfully!
-                  </h4>
-                  <p className="text-xs text-neutral-400">
-                    Your order was successfully sent to the kitchen.
-                  </p>
-                </div>
-                <div className="bg-neutral-55/10 dark:bg-neutral-850/30 border border-neutral-200/20 dark:border-neutral-800/20 rounded-2xl p-3 text-xs max-w-xs mx-auto space-y-1">
-                  <div className="flex justify-between text-neutral-500">
-                    <span>Order Reference</span>
-                    <span className="font-bold text-neutral-800 dark:text-neutral-200">{successOrderId}</span>
-                  </div>
-                  <div className="flex justify-between text-neutral-500 gap-4 text-left">
-                    <span>Items</span>
-                    <span className="font-bold text-neutral-800 dark:text-neutral-200 text-right">
-                      {orders.find(o => o.id === successOrderId)?.items.map(i => `${i.name} (x${i.quantity})`).join(', ')}
-                    </span>
-                  </div>
-                  <div className="flex justify-between text-neutral-500">
-                    <span>Payment Mode</span>
-                    <span className="font-bold text-neutral-800 dark:text-neutral-200">{paymentMethod}</span>
-                  </div>
-                </div>
-                <button
-                  onClick={() => {
-                    setIsCartOpen(false);
-                    setSuccessOrderId(null);
-                  }}
-                  className="w-full py-3 bg-maroon dark:bg-saffron text-white dark:text-maroon font-logo font-bold text-xs rounded-xl shadow-sm hover:scale-101 active:scale-99 transition-all border-none cursor-pointer"
-                >
-                  Track in Main Page
-                </button>
-              </div>
-            ) : (
-              <form onSubmit={handleSubmitOrder} className="p-5 space-y-4 max-h-[60vh] overflow-y-auto">
+            <form onSubmit={handleSubmitOrder} className="p-5 space-y-4 max-h-[60vh] overflow-y-auto">
                 {/* Cart Items List */}
                 <div className="space-y-3 pr-1">
                   {takeawayCart.map(cartItem => (
@@ -1218,7 +1177,68 @@ const ParcelSection: React.FC = () => {
                   </>
                 )}
               </form>
-            )}
+          </div>
+        </div>
+      )}
+
+      {/* Dedicated Success Popup/Modal */}
+      {showSuccessModal && (
+        <div className="fixed inset-0 bg-neutral-900/60 dark:bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-fade-in">
+          <div className="bg-white dark:bg-[#1E1E1E] rounded-3xl p-6 max-w-sm w-full text-center space-y-5 shadow-2xl border border-neutral-200 dark:border-neutral-850 animate-scale-in">
+            {/* Success Icon */}
+            <div className="w-16 h-16 bg-[#F4B400]/10 rounded-full flex items-center justify-center mx-auto text-[#F4B400] font-logo font-bold text-3xl animate-bounce">
+              ✓
+            </div>
+            
+            <div className="space-y-2">
+              <h3 className="font-logo font-black text-xl text-neutral-850 dark:text-neutral-105">
+                ✅ Order Placed Successfully!
+              </h3>
+              <p className="text-xs text-neutral-600 dark:text-neutral-300 font-medium">
+                Thank you for ordering from Sri Vijaya Durga Family Restaurant.
+              </p>
+              <p className="text-[11px] text-neutral-500 dark:text-neutral-400">
+                Your order has been received and sent to our kitchen.
+              </p>
+            </div>
+
+            <div className="bg-neutral-50 dark:bg-[#252525] border border-neutral-200/50 dark:border-[#333333] rounded-2xl p-4 space-y-2 text-xs">
+              <div className="flex justify-between text-neutral-500 dark:text-neutral-400">
+                <span>Order ID:</span>
+                <span className="font-extrabold text-neutral-800 dark:text-neutral-100 font-mono">{successOrderId}</span>
+              </div>
+              <div className="flex justify-between text-neutral-500 dark:text-neutral-400">
+                <span>Est. Preparation Time:</span>
+                <span className="font-bold text-[#F4B400]">20–30 Minutes</span>
+              </div>
+            </div>
+
+            {/* Buttons */}
+            <div className="flex flex-col gap-2 pt-2">
+              <button
+                onClick={() => {
+                  setShowSuccessModal(false);
+                  document.getElementById('live-order-tracker')?.scrollIntoView({ behavior: 'smooth' });
+                }}
+                className="w-full py-3 bg-[#F4B400] hover:bg-[#FFD54F] text-[#111827] font-logo font-extrabold text-xs rounded-xl shadow-md transition-all border-none cursor-pointer"
+              >
+                View Order
+              </button>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => setShowSuccessModal(false)}
+                  className="flex-1 py-3 bg-[#1F1F1F] hover:bg-[#2A2A2A] text-white border border-[#3A3A3A] font-logo font-bold text-xs rounded-xl transition-all cursor-pointer"
+                >
+                  Continue Ordering
+                </button>
+                <button
+                  onClick={() => setShowSuccessModal(false)}
+                  className="flex-1 py-3 bg-transparent hover:bg-neutral-100 dark:hover:bg-neutral-800 text-neutral-500 dark:text-neutral-400 border border-neutral-200 dark:border-neutral-700 font-logo font-bold text-xs rounded-xl transition-all cursor-pointer"
+                >
+                  Close
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       )}
