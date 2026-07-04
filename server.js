@@ -120,9 +120,6 @@ app.post('/api/orders', async (req, res) => {
     return res.status(400).json({ success: false, error: 'Invalid order data' });
   }
 
-  // Instantly broadcast to all tabs first to guarantee real-time UI sync
-  io.emit('new-order', newOrder); 
-
   try {
     const createdOrder = await prisma.order.create({
       data: {
@@ -158,6 +155,9 @@ app.post('/api/orders', async (req, res) => {
 
     // Perform post-order operations in a separate safe try-catch
     try {
+      // Instantly broadcast to all tabs first to guarantee real-time UI sync
+      io.emit('new-order', newOrder); 
+
       // Send WhatsApp Notifications for Takeaway/Parcel (isParcel) Orders
       if (createdOrder.isParcel) {
         const adminWhatsAppNumber = '+919966315544';
