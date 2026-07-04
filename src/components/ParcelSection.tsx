@@ -40,9 +40,9 @@ const ParcelSection: React.FC = () => {
 
   // Modal & Form State
   const [selectedItem, setSelectedItem] = useState<any | null>(null);
+  const [takeawayCart, setTakeawayCart] = useState<any[]>([]);
   const [customerName, setCustomerName] = useState('');
   const [customerPhone, setCustomerPhone] = useState('');
-  const [quantity, setQuantity] = useState(1);
   const [specialNotes, setSpecialNotes] = useState('');
   const [paymentMethod, setPaymentMethod] = useState<'UPI' | 'Cash' | 'Card'>('UPI');
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -51,7 +51,6 @@ const ParcelSection: React.FC = () => {
   const [errorMsg, setErrorMsg] = useState('');
   const [nameError, setNameError] = useState('');
   const [phoneError, setPhoneError] = useState('');
-  const [quantityError, setQuantityError] = useState('');
   const [successToast, setSuccessToast] = useState<string | null>(null);
   
   const [successOrderId, setSuccessOrderId] = useState<string | null>(null);
@@ -61,6 +60,8 @@ const ParcelSection: React.FC = () => {
 
   // Sync state with localStorage if active order is completed
   const trackedOrder = orders.find(o => o.id === trackingOrderId);
+
+  const subtotal = takeawayCart.reduce((sum, c) => sum + c.price * c.quantity, 0);
 
   // Filter items
   const filteredParcels = parcelItems.filter(item => {
@@ -73,21 +74,20 @@ const ParcelSection: React.FC = () => {
     // Clear validation states
     setNameError('');
     setPhoneError('');
-    setQuantityError('');
     setErrorMsg('');
 
     let hasValidationError = false;
 
+    if (takeawayCart.length === 0) {
+      setErrorMsg('Your takeaway cart is empty.');
+      hasValidationError = true;
+    }
     if (!customerName.trim()) {
       setNameError('Customer name is required.');
       hasValidationError = true;
     }
     if (!/^[0-9]{10}$/.test(customerPhone.trim())) {
       setPhoneError('Mobile number must be exactly 10 digits.');
-      hasValidationError = true;
-    }
-    if (quantity < 1) {
-      setQuantityError('Quantity must be at least 1.');
       hasValidationError = true;
     }
     if (!paymentMethod) {
@@ -105,8 +105,7 @@ const ParcelSection: React.FC = () => {
 
     try {
       const orderId = await placeParcelOrder(
-        selectedItem,
-        quantity,
+        takeawayCart.map(c => ({ id: c.id, name: c.name, price: c.price, quantity: c.quantity })),
         customerName.trim(),
         customerPhone.trim(),
         specialNotes.trim(),
@@ -123,14 +122,13 @@ const ParcelSection: React.FC = () => {
         setSuccessToast(`✓ Takeaway Order ${orderId} successfully placed and sent to kitchen!`);
         setTimeout(() => setSuccessToast(null), 5000);
 
-        // Clear form states
+        // Clear form and cart states
         setCustomerName('');
         setCustomerPhone('');
-        setQuantity(1);
         setSpecialNotes('');
         setNameError('');
         setPhoneError('');
-        setQuantityError('');
+        setTakeawayCart([]);
 
         // Close the modal popup
         setSelectedItem(null);
@@ -145,6 +143,24 @@ const ParcelSection: React.FC = () => {
     } finally {
       setIsSubmitting(false);
     }
+  };
+
+  const handleAddTakeawayItem = (item: any) => {
+    setTakeawayCart(prev => {
+      const idx = prev.findIndex(c => c.id === item.id);
+      if (idx > -1) {
+        const next = [...prev];
+        next[idx] = { ...next[idx], quantity: next[idx].quantity + 1 };
+        return next;
+      }
+      return [...prev, { ...item, quantity: 1 }];
+    });
+
+    setSelectedItem(item);
+    setErrorMsg('');
+    setNameError('');
+    setPhoneError('');
+    setSuccessOrderId(null);
   };
 
   const getStatusStep = (status: string) => {
@@ -457,19 +473,7 @@ const ParcelSection: React.FC = () => {
                     </span>
                   ) : (
                     <button 
-                      onClick={() => {
-                        setSelectedItem(item);
-                        setCustomerName('');
-                        setCustomerPhone('');
-                        setQuantity(1);
-                        setSpecialNotes('');
-                        setPaymentMethod('UPI');
-                        setErrorMsg('');
-                        setNameError('');
-                        setPhoneError('');
-                        setQuantityError('');
-                        setSuccessOrderId(null);
-                      }}
+                      onClick={() => handleAddTakeawayItem(item)}
                       className="flex items-center gap-1 px-4 py-2 bg-maroon dark:bg-saffron text-white dark:text-maroon font-logo font-bold text-xs rounded-xl shadow-sm hover:scale-103 hover:shadow-md active:scale-97 transition-all text-center border-none cursor-pointer"
                     >
                       Place Takeaway Order
@@ -526,9 +530,11 @@ const ParcelSection: React.FC = () => {
                     <span>Order Reference</span>
                     <span className="font-bold text-neutral-800 dark:text-neutral-200">{successOrderId}</span>
                   </div>
-                  <div className="flex justify-between text-neutral-500">
-                    <span>Item</span>
-                    <span className="font-bold text-neutral-800 dark:text-neutral-200">{selectedItem.name}</span>
+                  <div className="flex justify-between text-neutral-500 gap-4 text-left">
+                    <span>Items</span>
+                    <span className="font-bold text-neutral-800 dark:text-neutral-200 text-right">
+                      {orders.find(o => o.id === successOrderId)?.items.map(i => `${i.name} (x${i.quantity})`).join(', ') || (selectedItem ? `${selectedItem.name}` : '')}
+                    </span>
                   </div>
                   <div className="flex justify-between text-neutral-500">
                     <span>Payment Mode</span>
@@ -544,19 +550,73 @@ const ParcelSection: React.FC = () => {
               </div>
             ) : (
               <form onSubmit={handleSubmitOrder} className="p-5 space-y-4">
-                {/* Item Summary Card */}
-                <div className="flex gap-3 bg-neutral-50 dark:bg-neutral-850/30 border border-neutral-100 dark:border-neutral-800/40 p-3 rounded-2xl">
-                  <div className="w-14 h-14 rounded-xl overflow-hidden bg-neutral-100 dark:bg-neutral-800 flex-shrink-0">
-                    <ImageWithFallback src={selectedItem.image} alt={selectedItem.name} className="w-full h-full object-cover" />
-                  </div>
-                  <div className="space-y-1">
-                    <h5 className="font-logo font-bold text-xs text-neutral-800 dark:text-neutral-200 line-clamp-1">
-                      {selectedItem.name}
-                    </h5>
-                    <span className="font-logo font-extrabold text-xs text-maroon dark:text-saffron">
-                      ₹{selectedItem.price} per pack
-                    </span>
-                  </div>
+                {/* Cart Items List */}
+                <div className="space-y-3 max-h-48 overflow-y-auto pr-1">
+                  {takeawayCart.map(cartItem => (
+                    <div 
+                      key={cartItem.id} 
+                      className="flex items-center justify-between bg-neutral-55/10 dark:bg-neutral-850/30 border border-neutral-200/20 dark:border-neutral-800/20 p-3 rounded-2xl animate-fade-in"
+                    >
+                      <div className="flex gap-3 items-center">
+                        <div className="w-12 h-12 rounded-xl overflow-hidden bg-neutral-100 dark:bg-neutral-800 flex-shrink-0">
+                          <ImageWithFallback src={cartItem.image} alt={cartItem.name} className="w-full h-full object-cover" />
+                        </div>
+                        <div className="space-y-0.5">
+                          <h5 className="font-logo font-bold text-xs text-neutral-800 dark:text-neutral-200 line-clamp-1">
+                            {cartItem.name}
+                          </h5>
+                          <span className="font-logo font-extrabold text-[11px] text-maroon dark:text-saffron">
+                            ₹{cartItem.price}
+                          </span>
+                        </div>
+                      </div>
+                      
+                      {/* Quantity controls for this specific item */}
+                      <div className="flex items-center border border-neutral-200 dark:border-neutral-800 rounded-xl bg-neutral-50 dark:bg-neutral-850 h-8 px-1">
+                        <button 
+                          type="button"
+                          onClick={() => {
+                            setTakeawayCart(prev => {
+                              const idx = prev.findIndex(c => c.id === cartItem.id);
+                              if (idx === -1) return prev;
+                              const next = [...prev];
+                              if (next[idx].quantity <= 1) {
+                                return prev.filter(c => c.id !== cartItem.id);
+                              }
+                              next[idx] = { ...next[idx], quantity: next[idx].quantity - 1 };
+                              return next;
+                            });
+                          }}
+                          className="w-6 h-6 flex items-center justify-center rounded-lg hover:bg-neutral-200/50 dark:hover:bg-neutral-800 text-xs font-bold bg-transparent border-none cursor-pointer text-neutral-600 dark:text-neutral-400"
+                        >
+                          -
+                        </button>
+                        <span className="font-logo font-black text-xs text-neutral-850 dark:text-neutral-100 px-2 min-w-4 text-center">
+                          {cartItem.quantity}
+                        </span>
+                        <button 
+                          type="button"
+                          onClick={() => {
+                            setTakeawayCart(prev => {
+                              const idx = prev.findIndex(c => c.id === cartItem.id);
+                              if (idx === -1) return prev;
+                              const next = [...prev];
+                              next[idx] = { ...next[idx], quantity: next[idx].quantity + 1 };
+                              return next;
+                            });
+                          }}
+                          className="w-6 h-6 flex items-center justify-center rounded-lg hover:bg-neutral-200/50 dark:hover:bg-neutral-800 text-xs font-bold bg-transparent border-none cursor-pointer text-neutral-600 dark:text-neutral-400"
+                        >
+                          +
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                  {takeawayCart.length === 0 && (
+                    <p className="text-center text-xs text-neutral-500 py-4">
+                      Your takeaway cart is empty. Please add items.
+                    </p>
+                  )}
                 </div>
 
                 {/* Error Banner */}
@@ -611,57 +671,17 @@ const ParcelSection: React.FC = () => {
                     )}
                   </div>
 
-                  <div className="grid grid-cols-2 gap-4">
-                    {/* Quantity */}
-                    <div className="space-y-1">
-                      <label className="text-[10px] font-black uppercase tracking-wider text-neutral-500 dark:text-neutral-400">Quantity</label>
-                      <div className="flex items-center justify-between border border-neutral-200 dark:border-neutral-800 rounded-xl bg-neutral-50 dark:bg-neutral-850 h-[38px] px-1">
-                        <button 
-                          type="button"
-                          onClick={() => {
-                            const val = Math.max(1, quantity - 1);
-                            setQuantity(val);
-                            if (val >= 1) setQuantityError('');
-                          }}
-                          className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-neutral-200/50 dark:hover:bg-neutral-800 text-sm font-bold bg-transparent border-none cursor-pointer text-neutral-600 dark:text-neutral-400"
-                        >
-                          -
-                        </button>
-                        <span className="font-logo font-black text-xs text-neutral-800 dark:text-neutral-100">
-                          {quantity}
-                        </span>
-                        <button 
-                          type="button"
-                          onClick={() => {
-                            const val = quantity + 1;
-                            setQuantity(val);
-                            if (val >= 1) setQuantityError('');
-                          }}
-                          className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-neutral-200/50 dark:hover:bg-neutral-800 text-sm font-bold bg-transparent border-none cursor-pointer text-neutral-600 dark:text-neutral-400"
-                        >
-                          +
-                        </button>
-                      </div>
-                      {quantityError && (
-                        <p className="text-[10px] text-red-500 font-bold mt-0.5 ml-1">
-                          ⚠️ {quantityError}
-                        </p>
-                      )}
-                    </div>
-
-                    {/* Payment Mode */}
-                    <div className="space-y-1">
-                      <label className="text-[10px] font-black uppercase tracking-wider text-neutral-500 dark:text-neutral-400">Payment Mode</label>
-                      <select 
-                        value={paymentMethod}
-                        onChange={e => setPaymentMethod(e.target.value as any)}
-                        className="w-full border border-neutral-200 dark:border-neutral-800 rounded-xl bg-neutral-50 dark:bg-neutral-850 h-[38px] text-xs px-2.5 text-neutral-850 dark:text-neutral-200 focus:outline-none focus:border-maroon dark:focus:border-saffron cursor-pointer"
-                      >
-                        <option value="UPI">UPI (Quick Scan)</option>
-                        <option value="Cash">Cash at Counter</option>
-                        <option value="Card">Card at Counter</option>
-                      </select>
-                    </div>
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-black uppercase tracking-wider text-neutral-500 dark:text-neutral-400">Payment Mode</label>
+                    <select 
+                      value={paymentMethod}
+                      onChange={e => setPaymentMethod(e.target.value as any)}
+                      className="w-full border border-neutral-200 dark:border-neutral-800 rounded-xl bg-neutral-50 dark:bg-neutral-850 h-[38px] text-xs px-2.5 text-neutral-850 dark:text-neutral-200 focus:outline-none focus:border-maroon dark:focus:border-saffron cursor-pointer"
+                    >
+                      <option value="UPI">UPI (Quick Scan)</option>
+                      <option value="Cash">Cash at Counter</option>
+                      <option value="Card">Card at Counter</option>
+                    </select>
                   </div>
 
                   <div className="space-y-1">
@@ -680,7 +700,7 @@ const ParcelSection: React.FC = () => {
                 <div className="pt-3 border-t border-neutral-100 dark:border-neutral-850 flex justify-between items-center">
                   <span className="text-[10px] font-bold text-neutral-400 uppercase">Subtotal</span>
                   <span className="font-logo font-black text-base text-maroon dark:text-saffron bg-maroon/5 dark:bg-saffron/5 px-3 py-1 rounded-xl">
-                    ₹{selectedItem.price * quantity}
+                    ₹{subtotal}
                   </span>
                 </div>
 

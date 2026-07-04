@@ -119,7 +119,7 @@ interface AppContextType {
   updateParcelMenu: (newMenu: any[]) => void;
   bgImage: string;
   setBgImage: (img: string) => void;
-  placeParcelOrder: (item: any, quantity: number, customerName: string, customerPhone: string, specialNotes?: string, paymentMethod?: string) => Promise<string | null>;
+  placeParcelOrder: (items: any[], customerName: string, customerPhone: string, specialNotes?: string, paymentMethod?: string) => Promise<string>;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -851,7 +851,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     if (cart.length === 0) return false;
 
     const activeOrd = orders.find(o => o.tableNo === activeTable && o.status !== 'PAID');
-    let finalOrders = orders;
     let finalTables = tables;
 
     if (activeOrd) {
@@ -882,24 +881,21 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         }
       });
 
-      finalOrders = orders.map(o => {
-        if (o.id === activeOrd.id) {
-          const updatedOrder = {
-            ...o,
-            items: updatedItems,
-            status: 'PLACED' as const,
-            timestamp: Date.now(),
-            specialNotes: specialNotes || o.specialNotes
-          };
-          fetch(`${API_URL}/api/orders/${updatedOrder.id}`, {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(updatedOrder)
-          });
-          return updatedOrder;
-        }
-        return o;
+      const updatedOrder = {
+        ...activeOrd,
+        items: updatedItems,
+        status: 'PLACED' as const,
+        timestamp: Date.now(),
+        specialNotes: specialNotes || activeOrd.specialNotes
+      };
+
+      fetch(`${API_URL}/api/orders/${updatedOrder.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(updatedOrder)
       });
+
+      setOrders(prev => prev.map(o => o.id === activeOrd.id ? updatedOrder : o));
 
       // Map table back to Occupied/Pending
       finalTables = tables.map(t => {
@@ -929,7 +925,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(newOrder)
       });
-      finalOrders = [...orders, newOrder];
+
+      setOrders(prev => {
+        if (prev.some(o => o.id === newOrderId)) return prev;
+        return [...prev, newOrder];
+      });
 
       if (activeTable) {
         finalTables = tables.map(t => {
@@ -942,15 +942,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
 
     localStorage.setItem('svd_tables', JSON.stringify(finalTables));
-    setOrders(finalOrders);
     setTables(finalTables);
     triggerSync();
     return true;
   };
 
   const placeParcelOrder = async (
-    item: any,
-    quantity: number,
+    items: any[],
     customerName: string,
     customerPhone: string,
     specialNotes?: string,
@@ -963,12 +961,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       customerName,
       customerPhone,
       status: 'NEW',
-      items: [{
+      items: items.map(item => ({
         id: item.id,
         name: item.name,
         price: item.price,
-        quantity: quantity
-      }],
+        quantity: item.quantity
+      })),
       timestamp: Date.now(),
       isParcel: true,
       specialNotes,
@@ -998,7 +996,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       const savedOrder = await response.json();
       console.log('[placeParcelOrder] Order created successfully:', savedOrder);
       
-      setOrders(prev => [...prev, newOrder]);
+      setOrders(prev => {
+        if (prev.some(o => o.id === newOrderId)) return prev;
+        return [...prev, newOrder];
+      });
       triggerSync();
       return newOrderId;
     } catch (err: any) {
