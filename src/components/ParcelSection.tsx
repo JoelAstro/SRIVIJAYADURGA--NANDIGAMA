@@ -568,7 +568,7 @@ const ParcelSection: React.FC = () => {
 
               {/* Quantity Selector */}
               <div className="space-y-1">
-                <label className="text-[10px] font-black uppercase tracking-wider text-neutral-500 dark:text-neutral-400">Quantity</label>
+                <label className="text-[10px] font-black uppercase tracking-wider text-neutral-500 dark:text-[#D1D5DB]">Quantity</label>
                 <div className="flex items-center justify-between border border-neutral-200 dark:border-neutral-800 rounded-xl bg-neutral-50 dark:bg-neutral-850 h-[38px] px-1">
                   <button 
                     type="button"
@@ -592,13 +592,13 @@ const ParcelSection: React.FC = () => {
 
               {/* Special Instructions */}
               <div className="space-y-1">
-                <label className="text-[10px] font-black uppercase tracking-wider text-neutral-500 dark:text-neutral-400">Special Instructions / Customization (Optional)</label>
+                <label className="text-[10px] font-black uppercase tracking-wider text-neutral-500 dark:text-[#D1D5DB]">Special Instructions / Customization (Optional)</label>
                 <input 
                   type="text" 
                   value={itemNotes}
                   onChange={e => setItemNotes(e.target.value)}
                   placeholder="e.g. Extra spicy, no onions, double masala"
-                  className="w-full px-3 py-2 text-xs rounded-xl bg-neutral-50 dark:bg-neutral-850 border border-neutral-200 dark:border-neutral-800 text-neutral-800 dark:text-neutral-100 focus:outline-none focus:border-maroon dark:focus:border-saffron"
+                  className="w-full px-3 py-2.5 text-xs rounded-xl border border-[#D1D5DB] bg-white text-[#111827] placeholder-[#6B7280] dark:bg-neutral-900 dark:text-white dark:placeholder-[#9CA3AF] focus:outline-none focus:border-[#F4B400] focus:ring-2 focus:ring-[#F4B400]/20 caret-[#F4B400]"
                 />
               </div>
             </div>
@@ -795,7 +795,7 @@ const ParcelSection: React.FC = () => {
                     {/* Input Fields */}
                     <div className="space-y-3 pt-2 border-t border-neutral-100 dark:border-neutral-850">
                       <div className="space-y-1">
-                        <label className="text-[10px] font-black uppercase tracking-wider text-neutral-500 dark:text-neutral-400">Customer Name *</label>
+                        <label className="text-[10px] font-black uppercase tracking-wider text-neutral-500 dark:text-[#D1D5DB]">Customer Name *</label>
                         <input 
                           type="text" 
                           required
@@ -806,7 +806,7 @@ const ParcelSection: React.FC = () => {
                             if (val.trim()) setNameError('');
                           }}
                           placeholder="Enter customer name"
-                          className="w-full px-3 py-2.5 text-xs rounded-xl bg-neutral-50 dark:bg-neutral-850 border border-neutral-200 dark:border-neutral-800 text-neutral-800 dark:text-neutral-100 focus:outline-none focus:border-maroon dark:focus:border-saffron"
+                          className="w-full px-3 py-2.5 text-xs rounded-xl border border-[#D1D5DB] bg-white text-[#111827] placeholder-[#6B7280] dark:bg-neutral-900 dark:text-white dark:placeholder-[#9CA3AF] focus:outline-none focus:border-[#F4B400] focus:ring-2 focus:ring-[#F4B400]/20 caret-[#F4B400]"
                         />
                         {nameError && (
                           <p className="text-[10px] text-red-500 font-bold mt-0.5 ml-1 animate-pulse">
@@ -816,7 +816,7 @@ const ParcelSection: React.FC = () => {
                       </div>
 
                       <div className="space-y-1">
-                        <label className="text-[10px] font-black uppercase tracking-wider text-neutral-500 dark:text-neutral-400">Mobile Number *</label>
+                        <label className="text-[10px] font-black uppercase tracking-wider text-neutral-500 dark:text-[#D1D5DB]">Mobile Number *</label>
                         <input 
                           type="tel" 
                           required
@@ -828,7 +828,7 @@ const ParcelSection: React.FC = () => {
                             if (val.length === 10) setPhoneError('');
                           }}
                           placeholder="10-digit mobile number"
-                          className="w-full px-3 py-2.5 text-xs rounded-xl bg-neutral-50 dark:bg-neutral-850 border border-neutral-200 dark:border-neutral-800 text-neutral-800 dark:text-neutral-100 focus:outline-none focus:border-maroon dark:focus:border-saffron"
+                          className="w-full px-3 py-2.5 text-xs rounded-xl border border-[#D1D5DB] bg-white text-[#111827] placeholder-[#6B7280] dark:bg-neutral-900 dark:text-white dark:placeholder-[#9CA3AF] focus:outline-none focus:border-[#F4B400] focus:ring-2 focus:ring-[#F4B400]/20 caret-[#F4B400]"
                         />
                         {phoneError && (
                           <p className="text-[10px] text-red-500 font-bold mt-0.5 ml-1 animate-pulse">
@@ -838,11 +838,11 @@ const ParcelSection: React.FC = () => {
                       </div>
 
                       <div className="space-y-1">
-                        <label className="text-[10px] font-black uppercase tracking-wider text-neutral-500 dark:text-neutral-400">Payment Mode</label>
+                        <label className="text-[10px] font-black uppercase tracking-wider text-neutral-500 dark:text-[#D1D5DB]">Payment Mode</label>
                         <select 
                           value={paymentMethod}
                           onChange={e => setPaymentMethod(e.target.value as any)}
-                          className="w-full border border-neutral-200 dark:border-neutral-800 rounded-xl bg-neutral-50 dark:bg-neutral-850 h-[38px] text-xs px-2.5 text-neutral-850 dark:text-neutral-200 focus:outline-none focus:border-maroon dark:focus:border-saffron cursor-pointer"
+                          className="w-full border border-[#D1D5DB] rounded-xl bg-white text-[#111827] dark:bg-neutral-900 dark:text-white focus:outline-none focus:border-[#F4B400] focus:ring-2 focus:ring-[#F4B400]/20 cursor-pointer text-xs h-[38px] px-2.5"
                         >
                           <option value="UPI">UPI (Quick Scan)</option>
                           <option value="Cash">Cash at Counter</option>
@@ -851,13 +851,13 @@ const ParcelSection: React.FC = () => {
                       </div>
 
                       <div className="space-y-1">
-                        <label className="text-[10px] font-black uppercase tracking-wider text-neutral-500 dark:text-neutral-400">Order Notes (Optional)</label>
+                        <label className="text-[10px] font-black uppercase tracking-wider text-neutral-500 dark:text-[#D1D5DB]">Order Notes (Optional)</label>
                         <input 
                           type="text" 
                           value={orderNotes}
                           onChange={e => setOrderNotes(e.target.value)}
                           placeholder="e.g. Extra spicy, no onions"
-                          className="w-full px-3 py-2 text-xs rounded-xl bg-neutral-50 dark:bg-neutral-850 border border-neutral-200 dark:border-neutral-800 text-neutral-800 dark:text-neutral-100 focus:outline-none focus:border-maroon dark:focus:border-saffron"
+                          className="w-full px-3 py-2.5 text-xs rounded-xl border border-[#D1D5DB] bg-white text-[#111827] placeholder-[#6B7280] dark:bg-neutral-900 dark:text-white dark:placeholder-[#9CA3AF] focus:outline-none focus:border-[#F4B400] focus:ring-2 focus:ring-[#F4B400]/20 caret-[#F4B400]"
                         />
                       </div>
                     </div>
