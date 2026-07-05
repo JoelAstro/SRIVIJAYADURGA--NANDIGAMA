@@ -6,6 +6,7 @@ import ParcelSection from '../components/ParcelSection';
 import ReviewsSection from '../components/ReviewsSection';
 import GallerySection from '../components/GallerySection';
 import ContactSection from '../components/ContactSection';
+import OurMenuSlider from '../components/OurMenuSlider';
 import { 
   Home, Calendar, BookOpen, Truck, Copy, 
   Star, CreditCard, Send 
@@ -524,22 +525,14 @@ const CustomerPortal: React.FC<CustomerPortalProps> = ({ activeTab, setActiveTab
                   className="block max-w-md mx-auto rounded-3xl border border-neutral-300 dark:border-neutral-700 overflow-hidden shadow-lg bg-white dark:bg-neutral-900 hover:scale-[1.02] transition-transform cursor-pointer"
                   title="Click to download PDF Menu"
                 >
-                  <img 
-                    src={cmsSettings?.menuCardCoverImage || '/menu_card.jpg'} 
-                    alt="Sri Vijaya Durga printed menu card cover"
-                    className="w-full h-auto object-cover"
-                  />
+                  <OurMenuSlider />
                   <div className="py-2.5 bg-maroon/5 dark:bg-saffron/5 border-t border-neutral-200 dark:border-neutral-800 text-[10px] font-bold text-maroon dark:text-saffron uppercase tracking-widest">
                     📄 Download PDF Menu
                   </div>
                 </a>
               ) : (
                 <div className="max-w-md mx-auto rounded-3xl border border-neutral-300 dark:border-neutral-700 overflow-hidden shadow-lg bg-white dark:bg-neutral-900">
-                  <img 
-                    src={cmsSettings?.menuCardCoverImage || '/menu_card.jpg'} 
-                    alt="Sri Vijaya Durga printed menu card cover"
-                    className="w-full h-auto object-cover"
-                  />
+                  <OurMenuSlider />
                 </div>
               )}
             </div>
