@@ -75,6 +75,11 @@ const FloorMap: React.FC = () => {
         bgClass = 'bg-orange-50/30 dark:bg-orange-950/10 text-orange-800/80 dark:text-orange-400/80 cursor-not-allowed opacity-60';
         statusLabel = 'Billing Pending';
         break;
+      case 'HELD':
+        borderClass = 'border-purple-450/70 dark:border-purple-900/50';
+        bgClass = 'bg-purple-50/30 dark:bg-purple-950/10 text-purple-800/80 dark:text-purple-400/80 cursor-not-allowed opacity-60';
+        statusLabel = 'On Hold';
+        break;
     }
 
     if (isCurTable) {
@@ -168,6 +173,7 @@ const FloorMap: React.FC = () => {
                       <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold ${
                         t.status === 'AVAILABLE' ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-400' :
                         t.status === 'OCCUPIED' ? 'bg-rose-100 text-rose-800 dark:bg-rose-950/40 dark:text-rose-400' :
+                        t.status === 'HELD' ? 'bg-purple-100 text-purple-855 dark:bg-purple-950/40 dark:text-purple-400' :
                         'bg-orange-100 text-orange-800 dark:bg-orange-950/40 dark:text-orange-400'
                       }`}>
                         {statusLabel}
@@ -209,6 +215,7 @@ const FloorMap: React.FC = () => {
                               <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold ${
                                 t.status === 'AVAILABLE' ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-400' :
                                 t.status === 'OCCUPIED' ? 'bg-rose-100 text-rose-800 dark:bg-rose-950/40 dark:text-rose-400' :
+                                t.status === 'HELD' ? 'bg-purple-100 text-purple-855 dark:bg-purple-950/40 dark:text-purple-400' :
                                 'bg-orange-100 text-orange-800 dark:bg-orange-950/40 dark:text-orange-400'
                               }`}>
                                 {statusLabel}

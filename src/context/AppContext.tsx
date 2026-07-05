@@ -7,7 +7,7 @@ export interface Table {
   number: string;
   floor: 'ground' | 'first';
   capacity: number;
-  status: 'AVAILABLE' | 'OCCUPIED' | 'PENDING'; // AVAILABLE=Green, OCCUPIED=Red, PENDING=Orange (Billing Pending)
+  status: 'AVAILABLE' | 'OCCUPIED' | 'PENDING' | 'HELD'; // AVAILABLE=Green, OCCUPIED=Red, PENDING=Orange, HELD=Purple
   bookingTimeSlot?: string | null;
   customerName?: string | null;
   customerPhone?: string | null;
@@ -187,6 +187,7 @@ interface AppContextType {
   setTheme: (theme: 'dark' | 'light') => void;
   reserveTable: (tableNo: string, customerName: string, customerPhone: string, slot?: string) => boolean;
   releaseTable: (tableNo: string) => void;
+  holdTable: (tableNo: string) => void;
   addToCart: (item: any) => void;
   updateCartQty: (itemId: number, change: number) => void;
   clearCart: () => void;
@@ -1162,6 +1163,23 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     triggerSync();
   };
 
+  const holdTable = (tableNo: string) => {
+    const updated = tables.map(t => {
+      if (t.number === tableNo) {
+        if (t.status === 'HELD') {
+          const nextStatus = t.customerName ? ('OCCUPIED' as const) : ('AVAILABLE' as const);
+          return { ...t, status: nextStatus };
+        } else {
+          return { ...t, status: 'HELD' as const };
+        }
+      }
+      return t;
+    });
+    localStorage.setItem('svd_tables', JSON.stringify(updated));
+    setTables(updated);
+    triggerSync();
+  };
+
 
   // --- SETTINGS ACTIONS ---
   const updateUpiSettings = (newUpi: string, newQrUrl: string) => {
@@ -1621,6 +1639,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       setTheme,
       reserveTable,
       releaseTable,
+      holdTable,
       addToCart,
       updateCartQty,
       clearCart,

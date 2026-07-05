@@ -27,7 +27,7 @@ const AdminDashboard: React.FC = () => {
     upiId, qrCodeUrl, ratings, reviews, menuItems, 
     updateUpiSettings, updateMenu, getAverageRating,
     paymentNotifications, dismissNotification, dismissAllNotifications,
-    parcelItems, updateParcelMenu, releaseTable, settleBillAndReleaseTable,
+    parcelItems, updateParcelMenu, releaseTable, holdTable, settleBillAndReleaseTable,
     updateOrderStatus, cmsSettings, updateCmsSettings, cmsVersions, restoreCmsVersion,
     addReview, updateReview, deleteReview
   } = useApp();
@@ -121,6 +121,7 @@ const AdminDashboard: React.FC = () => {
   const availableTablesCount = tables.filter(t => t.status === 'AVAILABLE').length;
   const occupiedTablesCount = tables.filter(t => t.status === 'OCCUPIED').length;
   const pendingTablesCount = tables.filter(t => t.status === 'PENDING').length;
+  const heldTablesCount = tables.filter(t => t.status === 'HELD').length;
 
   const startOfToday = new Date().setHours(0, 0, 0, 0);
   const todayOrders = orders.filter(o => o.timestamp >= startOfToday);
@@ -627,7 +628,7 @@ const AdminDashboard: React.FC = () => {
                 <h4 className="text-[10px] text-neutral-400 font-bold uppercase">Dining Occupancy</h4>
                 <p className="text-sm font-extrabold font-logo">{availableTablesCount} / {totalTablesCount} Free</p>
                 <p className="text-[9px] text-neutral-500 mt-0.5">
-                  {occupiedTablesCount} Eating • {pendingTablesCount} Bill Pending
+                  {occupiedTablesCount} Eating • {pendingTablesCount} Bill Pending {heldTablesCount > 0 && `• ${heldTablesCount} Held`}
                 </p>
               </div>
             </div>
@@ -673,25 +674,23 @@ const AdminDashboard: React.FC = () => {
               
               <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 xl:grid-cols-6 gap-3">
                 {tables.map(t => {
-                  let statusColor = 'bg-emerald-50 border-emerald-200 text-emerald-700 dark:bg-emerald-950/20 dark:border-emerald-900/50 dark:text-emerald-400';
+                  let statusColor = 'bg-emerald-50 border-emerald-255 text-emerald-700 dark:bg-emerald-950/20 dark:border-emerald-900/50 dark:text-emerald-400';
                   if (t.status === 'OCCUPIED') {
-                    statusColor = 'bg-rose-50 border-rose-200 text-rose-700 dark:bg-rose-950/20 dark:border-rose-900/50 dark:text-rose-400';
+                    statusColor = 'bg-rose-50 border-rose-255 text-rose-700 dark:bg-rose-950/20 dark:border-rose-900/50 dark:text-rose-400';
                   } else if (t.status === 'PENDING') {
-                    statusColor = 'bg-orange-50 border-orange-200 text-orange-700 dark:bg-orange-950/20 dark:border-orange-900/50 dark:text-orange-400';
+                    statusColor = 'bg-orange-50 border-orange-255 text-orange-700 dark:bg-orange-950/20 dark:border-orange-900/50 dark:text-orange-400';
+                  } else if (t.status === 'HELD') {
+                    statusColor = 'bg-purple-50 border-purple-255 text-purple-700 dark:bg-purple-950/20 dark:border-purple-900/50 dark:text-purple-400';
                   }
                   
                   return (
                     <div 
                       key={t.id}
                       onClick={() => {
-                        if (t.status === 'OCCUPIED' || t.status === 'PENDING') {
-                          setSelectedTableForRelease(t.number);
-                          setShowReleaseModal(true);
-                        }
+                        setSelectedTableForRelease(t.number);
+                        setShowReleaseModal(true);
                       }}
-                      className={`py-3 text-center rounded-xl border font-bold text-xs shadow-inner flex flex-col items-center justify-center gap-0.5 select-none transition-transform duration-200 ${
-                        t.status !== 'AVAILABLE' ? 'cursor-pointer hover:scale-105 hover:shadow-md' : 'opacity-80'
-                      } ${statusColor}`}
+                      className={`py-3 text-center rounded-xl border font-bold text-xs shadow-inner flex flex-col items-center justify-center gap-0.5 select-none transition-transform duration-200 cursor-pointer hover:scale-105 hover:shadow-md ${statusColor}`}
                     >
                       <span>T-{t.number}</span>
                       <span className="text-[8px] font-semibold opacity-75">{t.capacity}S</span>
@@ -834,7 +833,7 @@ const AdminDashboard: React.FC = () => {
                 placeholder="Search dishes by name or category..."
                 value={menuSearch}
                 onChange={(e) => setMenuSearch(e.target.value)}
-                className="w-full pl-9 pr-4 py-2 rounded-xl border border-neutral-300 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-800 text-xs focus:border-maroon dark:focus:border-saffron outline-none"
+                className="w-full pl-9 pr-4 py-2 rounded-xl border border-neutral-300 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-800 text-xs focus:border-maroon dark:focus:border-saffron outline-none text-neutral-805 dark:text-neutral-100"
               />
             </div>
 
@@ -843,7 +842,7 @@ const AdminDashboard: React.FC = () => {
                 <button
                   key={opt}
                   onClick={() => setMenuFilter(opt)}
-                  className={`px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase transition-all ${
+                  className={`px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase transition-all cursor-pointer ${
                     menuFilter === opt 
                       ? 'bg-maroon text-white dark:bg-saffron dark:text-maroon shadow-sm'
                       : 'text-neutral-550 dark:text-neutral-450 hover:text-neutral-800 dark:hover:text-neutral-200'
@@ -853,21 +852,23 @@ const AdminDashboard: React.FC = () => {
                 </button>
               ))}
             </div>
-                  {/* Dishes Table (desktop/tablet) */}
+          </div>
+
+          {/* Dishes Table (desktop/tablet) */}
           <div className="bg-white dark:bg-bg-dark border border-neutral-250 dark:border-neutral-800 rounded-3xl overflow-hidden shadow-sm glass hidden md:block">
             <div className="overflow-x-auto">
               <table className="w-full text-left text-xs border-collapse">
                 <thead>
-                  <tr className="bg-neutral-50 dark:bg-neutral-800/30 text-neutral-400 font-bold uppercase text-[9px] tracking-wider border-b border-neutral-200 dark:border-neutral-800">
-                    <th className="p-4">Dish</th>
-                    <th className="p-4">Category</th>
-                    <th className="p-4">Price</th>
-                    <th className="p-4">Type</th>
-                    <th className="p-4">Availability</th>
-                    <th className="p-4 text-right">Actions</th>
+                  <tr className="bg-neutral-50/50 dark:bg-neutral-800/30 text-neutral-400 font-logo font-extrabold uppercase text-[10px] tracking-wider border-b border-neutral-200 dark:border-neutral-800">
+                    <th className="p-4 w-[35%]">Dish</th>
+                    <th className="p-4 w-[20%]">Category</th>
+                    <th className="p-4 w-[15%]">Price</th>
+                    <th className="p-4 w-[12%]">Type</th>
+                    <th className="p-4 w-[12%]">Availability</th>
+                    <th className="p-4 w-[6%] text-right">Actions</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-neutral-100 dark:divide-neutral-800/60 font-medium">
+                <tbody className="divide-y divide-neutral-150 dark:divide-neutral-850/60 font-medium">
                   {filteredMenuItems.length === 0 ? (
                     <tr>
                       <td colSpan={6} className="text-center py-10 text-neutral-400 italic">No menu items match search query.</td>
@@ -876,26 +877,30 @@ const AdminDashboard: React.FC = () => {
                     filteredMenuItems.map(dish => (
                       <tr 
                         key={dish.id} 
-                        className={`hover:bg-neutral-50/50 dark:hover:bg-neutral-850/20 transition-all ${
-                          dish.disabled ? 'bg-neutral-100/50 dark:bg-neutral-850/5 text-neutral-400' : ''
+                        className={`hover:bg-neutral-50/40 dark:hover:bg-neutral-855/20 transition-all align-middle ${
+                          dish.disabled ? 'bg-neutral-100/30 dark:bg-neutral-855/5 text-neutral-400' : ''
                         }`}
                       >
-                        <td className="p-4 flex items-center gap-3">
-                          <ImageWithFallback 
-                            src={dish.image} 
-                            alt={dish.name} 
-                            className={`w-10 h-10 rounded-lg overflow-hidden border border-neutral-200 dark:border-neutral-700 flex-shrink-0 ${dish.disabled ? 'grayscale' : ''}`} 
-                          />
-                          <div>
-                            <h5 className="font-bold text-neutral-850 dark:text-neutral-100">{dish.name}</h5>
-                            <p className="text-[10px] text-neutral-400 line-clamp-1 max-w-[200px]">{dish.description}</p>
+                        <td className="p-4">
+                          <div className="flex items-center gap-3">
+                            <ImageWithFallback 
+                              src={dish.image} 
+                              alt={dish.name} 
+                              className={`w-10 h-10 rounded-xl overflow-hidden border border-neutral-200 dark:border-neutral-700 flex-shrink-0 object-cover ${dish.disabled ? 'grayscale opacity-60' : ''}`} 
+                            />
+                            <div className="min-w-0">
+                              <h5 className="font-bold text-neutral-800 dark:text-neutral-100 truncate">{dish.name}</h5>
+                              <p className="text-[10px] text-neutral-400 line-clamp-1 max-w-[220px] font-normal">{dish.description}</p>
+                            </div>
                           </div>
                         </td>
                         <td className="p-4 text-neutral-600 dark:text-neutral-300 font-semibold">{dish.category}</td>
-                        <td className="p-4 font-logo font-extrabold text-neutral-800 dark:text-neutral-100">₹{dish.price}</td>
+                        <td className="p-4 font-logo font-extrabold text-neutral-805 dark:text-neutral-100 font-logo">₹{dish.price}</td>
                         <td className="p-4">
-                          <span className={`px-2 py-0.5 rounded text-[9px] font-bold uppercase ${
-                            dish.type === 'veg' ? 'bg-green-100 text-green-800 dark:bg-green-950/40 dark:text-green-400' : 'bg-red-100 text-red-800 dark:bg-red-950/40 dark:text-red-400'
+                          <span className={`px-2 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider ${
+                            dish.type === 'veg' 
+                              ? 'bg-green-500/10 text-green-600 dark:text-green-400 border border-green-500/20' 
+                              : 'bg-red-505/10 text-red-650 dark:text-red-400 border border-red-500/20'
                           }`}>
                             {dish.type}
                           </span>
@@ -903,17 +908,17 @@ const AdminDashboard: React.FC = () => {
                         <td className="p-4">
                           <button
                             onClick={() => handleToggleDish(dish.id, !!dish.disabled)}
-                            className="focus:outline-none transition-transform active:scale-95"
+                            className="focus:outline-none transition-transform active:scale-95 cursor-pointer border-none bg-transparent"
                           >
                             {dish.disabled ? (
                               <div className="flex items-center gap-1.5 text-neutral-450 dark:text-neutral-500 font-semibold">
                                 <ToggleLeft className="w-6 h-6 text-neutral-300 dark:text-neutral-700" />
-                                <span>Disabled</span>
+                                <span className="text-[10px]">Disabled</span>
                               </div>
                             ) : (
                               <div className="flex items-center gap-1.5 text-emerald-600 dark:text-emerald-400 font-semibold">
                                 <ToggleRight className="w-6 h-6 text-emerald-500" />
-                                <span>Enabled</span>
+                                <span className="text-[10px]">Enabled</span>
                               </div>
                             )}
                           </button>
@@ -922,14 +927,14 @@ const AdminDashboard: React.FC = () => {
                           <div className="flex items-center justify-end gap-1.5">
                             <button 
                               onClick={() => handleOpenEditDish(dish)}
-                              className="p-1.5 hover:bg-neutral-150 dark:hover:bg-neutral-800 rounded-lg text-neutral-550 dark:text-neutral-400 hover:text-maroon dark:hover:text-saffron transition-all"
+                              className="p-1.5 hover:bg-neutral-105 dark:hover:bg-neutral-800 rounded-lg text-neutral-500 hover:text-maroon dark:hover:text-saffron transition-all cursor-pointer"
                               title="Edit Dish"
                             >
                               <Edit className="w-4 h-4" />
                             </button>
                             <button 
                               onClick={() => handleDeleteDish(dish.id)}
-                              className="p-1.5 hover:bg-neutral-150 dark:hover:bg-neutral-800 rounded-lg text-neutral-550 dark:text-neutral-400 hover:text-red-500 dark:hover:text-red-450 transition-all"
+                              className="p-1.5 hover:bg-neutral-105 dark:hover:bg-neutral-800 rounded-lg text-neutral-400 hover:text-red-500 transition-all cursor-pointer"
                               title="Delete Dish"
                             >
                               <Trash2 className="w-4 h-4" />
@@ -947,7 +952,7 @@ const AdminDashboard: React.FC = () => {
           {/* Dishes Card Grid (mobile only) */}
           <div className="block md:hidden space-y-4">
             {filteredMenuItems.length === 0 ? (
-              <div className="text-center py-10 bg-white dark:bg-bg-dark rounded-3xl border border-neutral-200 dark:border-neutral-800 text-neutral-450 italic text-xs glass">
+              <div className="text-center py-12 bg-white dark:bg-bg-dark rounded-3xl border border-neutral-200 dark:border-neutral-800 text-neutral-400 italic text-xs glass">
                 No menu items match search query.
               </div>
             ) : (
@@ -958,60 +963,60 @@ const AdminDashboard: React.FC = () => {
                     dish.disabled ? 'border-neutral-200/50 dark:border-neutral-800/60 opacity-75' : 'border-neutral-200 dark:border-neutral-800'
                   }`}
                 >
-                  <div className="flex items-start gap-3">
+                  <div className="flex items-start gap-4">
                     <ImageWithFallback 
                       src={dish.image} 
                       alt={dish.name} 
-                      className={`w-12 h-12 rounded-xl overflow-hidden border border-neutral-200 dark:border-neutral-700 flex-shrink-0 ${dish.disabled ? 'grayscale' : ''}`} 
+                      className={`w-14 h-14 rounded-xl overflow-hidden border border-neutral-200 dark:border-neutral-700 flex-shrink-0 object-cover ${dish.disabled ? 'grayscale opacity-60' : ''}`} 
                     />
-                    <div className="flex-1 min-w-0">
+                    <div className="flex-1 min-w-0 space-y-1">
                       <div className="flex items-center justify-between gap-2">
-                        <h5 className="font-logo font-bold text-xs text-neutral-850 dark:text-neutral-100 truncate">{dish.name}</h5>
-                        <span className={`px-2 py-0.5 rounded text-[8px] font-extrabold uppercase tracking-wide flex-shrink-0 ${
-                          dish.type === 'veg' ? 'bg-green-100 text-green-800 dark:bg-green-950/40 dark:text-green-400' : 'bg-red-100 text-red-800 dark:bg-red-950/40 dark:text-red-400'
+                        <h5 className="font-logo font-extrabold text-sm text-neutral-805 dark:text-neutral-200 truncate">{dish.name}</h5>
+                        <span className={`px-2 py-0.5 rounded text-[8px] font-extrabold uppercase tracking-wider flex-shrink-0 ${
+                          dish.type === 'veg' ? 'bg-green-500/10 text-green-600 dark:text-green-400 border border-green-500/20' : 'bg-red-505/10 text-red-600 dark:text-red-400 border border-red-500/20'
                         }`}>
                           {dish.type}
                         </span>
                       </div>
-                      <p className="text-[10px] text-neutral-400 font-semibold mb-0.5">{dish.category}</p>
-                      <p className="text-[10px] text-neutral-400 line-clamp-2 leading-relaxed">{dish.description}</p>
+                      <div className="text-[10px] text-maroon dark:text-saffron font-bold uppercase tracking-wider">{dish.category}</div>
+                      <p className="text-[11px] text-neutral-500 dark:text-neutral-450 line-clamp-2 leading-relaxed font-medium">{dish.description}</p>
                     </div>
                   </div>
 
-                  <div className="flex items-center justify-between pt-2.5 border-t border-neutral-150 dark:border-neutral-800/40">
-                    <span className="font-logo font-extrabold text-xs text-maroon dark:text-saffron">₹{dish.price}</span>
+                  <div className="flex items-center justify-between pt-3 border-t border-neutral-100 dark:border-neutral-850/60">
+                    <span className="font-logo font-black text-sm text-neutral-800 dark:text-neutral-100">₹{dish.price}</span>
                     
                     <div className="flex items-center gap-3">
                       {/* Availability toggle */}
                       <button
                         onClick={() => handleToggleDish(dish.id, !!dish.disabled)}
-                        className="focus:outline-none transition-transform active:scale-95 flex items-center gap-1 text-[10px] font-bold"
+                        className="focus:outline-none transition-transform active:scale-95 flex items-center gap-1.5 text-[10px] font-bold cursor-pointer border-none bg-transparent"
                       >
                         {dish.disabled ? (
                           <>
-                            <ToggleLeft className="w-5 h-5 text-neutral-305 dark:text-neutral-700" />
+                            <ToggleLeft className="w-6 h-6 text-neutral-300 dark:text-neutral-700" />
                             <span className="text-neutral-400">Disabled</span>
                           </>
                         ) : (
                           <>
-                            <ToggleRight className="w-5 h-5 text-emerald-500" />
-                            <span className="text-emerald-600 dark:text-emerald-400">Enabled</span>
+                            <ToggleRight className="w-6 h-6 text-emerald-500" />
+                            <span className="text-emerald-650 dark:text-emerald-400">Enabled</span>
                           </>
                         )}
                       </button>
 
                       {/* Actions */}
-                      <div className="flex items-center gap-0.5">
+                      <div className="flex items-center gap-1 border-l border-neutral-100 dark:border-neutral-855 pl-2">
                         <button 
                           onClick={() => handleOpenEditDish(dish)}
-                          className="p-1.5 hover:bg-neutral-100 dark:hover:bg-neutral-800 rounded-lg text-neutral-500 dark:text-neutral-400 transition-all"
+                          className="p-1.5 hover:bg-neutral-100 dark:hover:bg-neutral-800 rounded-lg text-neutral-500 hover:text-maroon dark:hover:text-saffron transition-all cursor-pointer"
                           title="Edit"
                         >
                           <Edit className="w-4 h-4" />
                         </button>
                         <button 
                           onClick={() => handleDeleteDish(dish.id)}
-                          className="p-1.5 hover:bg-neutral-100 dark:hover:bg-neutral-800 rounded-lg text-neutral-500 dark:text-neutral-400 hover:text-red-500 transition-all"
+                          className="p-1.5 hover:bg-neutral-100 dark:hover:bg-neutral-800 rounded-lg text-neutral-400 hover:text-red-500 transition-all cursor-pointer"
                           title="Delete"
                         >
                           <Trash2 className="w-4 h-4" />
@@ -1022,7 +1027,7 @@ const AdminDashboard: React.FC = () => {
                 </div>
               ))
             )}
-          </div>      </div>
+          </div>
         </div>
       )}
 
@@ -1625,7 +1630,7 @@ const AdminDashboard: React.FC = () => {
                         <th className="p-4 text-right">View</th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-neutral-100 dark:divide-neutral-800/60 font-medium">
+                    <tbody className="divide-y divide-neutral-150 dark:divide-neutral-850/60 font-medium">
                       {searchedInvoices.length === 0 ? (
                         <tr>
                           <td colSpan={7} className="text-center py-10 text-neutral-400 italic">No invoices found matching search.</td>
@@ -3467,53 +3472,143 @@ const AdminDashboard: React.FC = () => {
         </div>
       )}
 
-      {/* --- TABLE RELEASE CONFIRMATION MODAL --- */}
-      {showReleaseModal && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 animate-fade-in">
-          <div className="bg-white dark:bg-bg-dark border border-neutral-200 dark:border-neutral-800 rounded-3xl w-full max-w-sm shadow-2xl overflow-hidden glass">
-            
-            <div className="flex items-center justify-between p-4 border-b border-neutral-100 dark:border-neutral-800">
-              <h3 className="font-logo font-extrabold text-neutral-800 dark:text-neutral-100 text-sm tracking-wide uppercase">
-                Force Release Table
-              </h3>
-              <button 
-                onClick={() => setShowReleaseModal(false)}
-                className="text-neutral-400 hover:text-rose-500 transition-colors p-1 rounded-lg hover:bg-neutral-100 dark:hover:bg-neutral-800"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-            
-            <div className="p-6 text-center space-y-4">
-              <div className="w-16 h-16 rounded-full bg-rose-50 dark:bg-rose-900/20 flex items-center justify-center mx-auto text-rose-600 dark:text-rose-400 border border-rose-100 dark:border-rose-800/50">
-                <span className="font-logo font-extrabold text-xl">T-{selectedTableForRelease}</span>
+      {/* --- TABLE CONTROL MODAL --- */}
+      {showReleaseModal && selectedTableForRelease && (() => {
+        const currentTable = tables.find(t => t.number === selectedTableForRelease);
+        if (!currentTable) return null;
+        
+        let statusBadge = (
+          <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-400">
+            Available
+          </span>
+        );
+        if (currentTable.status === 'OCCUPIED') {
+          statusBadge = (
+            <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-rose-100 text-rose-800 dark:bg-rose-950/40 dark:text-rose-400">
+              Occupied
+            </span>
+          );
+        } else if (currentTable.status === 'PENDING') {
+          statusBadge = (
+            <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-orange-100 text-orange-800 dark:bg-orange-950/40 dark:text-orange-400">
+              Billing Pending
+            </span>
+          );
+        } else if (currentTable.status === 'HELD') {
+          statusBadge = (
+            <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-purple-100 text-purple-800 dark:bg-purple-950/40 dark:text-purple-400">
+              On Hold
+            </span>
+          );
+        }
+
+        return (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 animate-fade-in">
+            <div className="bg-white dark:bg-bg-dark border border-neutral-200 dark:border-neutral-800 rounded-3xl w-full max-w-sm shadow-2xl overflow-hidden glass">
+              
+              <div className="flex items-center justify-between p-4 border-b border-neutral-100 dark:border-neutral-800">
+                <h3 className="font-logo font-extrabold text-neutral-800 dark:text-neutral-100 text-sm tracking-wide uppercase">
+                  Table T-{selectedTableForRelease} Control
+                </h3>
+                <button 
+                  onClick={() => {
+                    setShowReleaseModal(false);
+                    setSelectedTableForRelease(null);
+                  }}
+                  className="text-neutral-400 hover:text-rose-500 transition-colors p-1 rounded-lg hover:bg-neutral-100 dark:hover:bg-neutral-800 border-none bg-transparent"
+                >
+                  <X className="w-4 h-4" />
+                </button>
               </div>
-              <p className="text-sm text-neutral-600 dark:text-neutral-300 font-medium leading-relaxed">
-                Are you sure you want to forcibly release <strong className="text-neutral-900 dark:text-white">Table {selectedTableForRelease}</strong> back to Available?
-              </p>
-              <p className="text-[10px] text-rose-500 bg-rose-50 dark:bg-rose-950/20 border border-rose-100 dark:border-rose-900/30 px-3 py-2 rounded-lg font-semibold">
-                Warning: This clears any active booking immediately!
-              </p>
-            </div>
+              
+              <div className="p-6 space-y-4">
+                {/* Table circle indicator */}
+                <div className={`w-16 h-16 rounded-full flex items-center justify-center mx-auto border ${
+                  currentTable.status === 'AVAILABLE' ? 'bg-emerald-50 border-emerald-100 text-emerald-600 dark:bg-emerald-950/20 dark:border-emerald-800/50 dark:text-emerald-400' :
+                  currentTable.status === 'OCCUPIED' ? 'bg-rose-50 border-rose-100 text-rose-600 dark:bg-rose-950/20 dark:border-rose-800/50 dark:text-rose-400' :
+                  currentTable.status === 'HELD' ? 'bg-purple-50 border-purple-100 text-purple-600 dark:bg-purple-950/20 dark:border-purple-800/50 dark:text-purple-400' :
+                  'bg-orange-50 border-orange-105 text-orange-600 dark:bg-orange-950/20 dark:border-orange-800/50 dark:text-orange-400'
+                }`}>
+                  <span className="font-logo font-extrabold text-xl">T-{selectedTableForRelease}</span>
+                </div>
 
-            <div className="flex items-center gap-3 p-4 bg-neutral-50 dark:bg-neutral-900/50 border-t border-neutral-100 dark:border-neutral-800">
-              <button 
-                onClick={() => setShowReleaseModal(false)}
-                className="flex-1 px-4 py-2.5 rounded-xl border border-neutral-300 dark:border-neutral-700 text-neutral-700 dark:text-neutral-300 font-bold text-xs hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-all"
-              >
-                Cancel
-              </button>
-              <button 
-                onClick={confirmReleaseTable}
-                className="flex-1 px-4 py-2.5 rounded-xl bg-rose-600 text-white font-bold text-xs hover:bg-rose-700 shadow-md shadow-rose-600/20 transition-all"
-              >
-                Action: Release Table
-              </button>
-            </div>
+                {/* Status Indicator Row */}
+                <div className="flex items-center justify-between border-b border-neutral-100 dark:border-neutral-855 pb-3">
+                  <span className="text-xs text-neutral-400 font-bold uppercase">Current Status</span>
+                  {statusBadge}
+                </div>
 
+                {/* Customer / Booking Details (if any) */}
+                {currentTable.customerName && (
+                  <div className="bg-neutral-50 dark:bg-neutral-850/30 border border-neutral-150 dark:border-neutral-800 p-3 rounded-2xl text-xs space-y-1.5 text-neutral-600 dark:text-neutral-300">
+                    <div className="flex justify-between">
+                      <span className="text-[10px] text-neutral-400 uppercase font-bold">Diner</span>
+                      <span className="font-bold text-neutral-700 dark:text-neutral-200">{currentTable.customerName}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-[10px] text-neutral-405 uppercase font-bold">Phone</span>
+                      <span className="font-bold text-neutral-700 dark:text-neutral-200">{currentTable.customerPhone}</span>
+                    </div>
+                    {currentTable.bookingTimeSlot && (
+                      <div className="flex justify-between">
+                        <span className="text-[10px] text-neutral-405 uppercase font-bold">Slot</span>
+                        <span className="font-bold text-neutral-700 dark:text-neutral-200">{currentTable.bookingTimeSlot}</span>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* Warning message when releasing */}
+                {currentTable.status !== 'AVAILABLE' && (
+                  <p className="text-[9px] text-rose-505 bg-rose-50 dark:bg-rose-955/20 border border-rose-100 dark:border-rose-900/30 px-3 py-2 rounded-lg font-semibold text-center" style={{ color: '#ef4444' }}>
+                    Warning: Releasing a table resets it and clears active dining info!
+                  </p>
+                )}
+              </div>
+
+              {/* Actions footer */}
+              <div className="flex flex-col gap-2 p-4 bg-neutral-50 dark:bg-neutral-900/50 border-t border-neutral-100 dark:border-neutral-800">
+                <div className="flex gap-2">
+                  <button 
+                    onClick={() => {
+                      holdTable(selectedTableForRelease);
+                      setShowReleaseModal(false);
+                      setSelectedTableForRelease(null);
+                    }}
+                    className={`flex-1 px-4 py-2.5 rounded-xl border font-bold text-xs transition-all cursor-pointer ${
+                      currentTable.status === 'HELD' 
+                        ? 'bg-purple-600 border-purple-600 text-white hover:bg-purple-700' 
+                        : 'bg-white dark:bg-bg-dark border-neutral-350 dark:border-neutral-700 text-neutral-700 dark:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-neutral-800'
+                    }`}
+                  >
+                    {currentTable.status === 'HELD' ? 'Unhold Table' : 'Hold Table'}
+                  </button>
+
+                  <button 
+                    onClick={() => {
+                      setShowReleaseModal(false);
+                      setSelectedTableForRelease(null);
+                    }}
+                    className="flex-1 px-4 py-2.5 rounded-xl border border-neutral-300 dark:border-neutral-700 text-neutral-750 dark:text-neutral-300 font-bold text-xs bg-white dark:bg-bg-dark hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-all cursor-pointer"
+                  >
+                    Cancel
+                  </button>
+                </div>
+
+                {currentTable.status !== 'AVAILABLE' && (
+                  <button 
+                    onClick={confirmReleaseTable}
+                    className="w-full px-4 py-2.5 rounded-xl bg-rose-600 text-white font-bold text-xs hover:bg-rose-700 shadow-md shadow-rose-600/20 transition-all cursor-pointer border-none"
+                  >
+                    Release Table (Available)
+                  </button>
+                )}
+              </div>
+
+            </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
 
     </div>
   );
