@@ -24,11 +24,12 @@ interface Dish {
 const AdminDashboard: React.FC = () => {
   const { 
     tables, orders, invoices, adminSession, logout, 
-    upiId, qrCodeUrl, ratings, menuItems, 
+    upiId, qrCodeUrl, ratings, reviews, menuItems, 
     updateUpiSettings, updateMenu, getAverageRating,
     paymentNotifications, dismissNotification, dismissAllNotifications,
     parcelItems, updateParcelMenu, releaseTable, settleBillAndReleaseTable,
-    updateOrderStatus, cmsSettings, updateCmsSettings, cmsVersions, restoreCmsVersion
+    updateOrderStatus, cmsSettings, updateCmsSettings, cmsVersions, restoreCmsVersion,
+    addReview, updateReview, deleteReview
   } = useApp();
 
   const [isAuthenticated, setIsAuthenticated] = useState(!!adminSession);
@@ -38,6 +39,13 @@ const AdminDashboard: React.FC = () => {
   const [cmsSubTab, setCmsSubTab] = useState<string>('general');
   const [cmsSaving, setCmsSaving] = useState(false);
   const [newOffer, setNewOffer] = useState({ title: '', description: '', image: '', couponCode: '', isActive: true });
+  
+  // Review management states
+  const [ratingsSubTab, setRatingsSubTab] = useState<'checkout' | 'website'>('checkout');
+  const [editingReview, setEditingReview] = useState<any>(null);
+  const [showAddReviewForm, setShowAddReviewForm] = useState(false);
+  const [reviewForm, setReviewForm] = useState({ name: '', rating: 5, message: '', status: 'APPROVED' as const });
+  const [reviewFilter, setReviewFilter] = useState<'ALL' | 'PENDING' | 'APPROVED' | 'REJECTED'>('ALL');
 
   // Sync CMS forms locally
   useEffect(() => {
@@ -1021,82 +1029,422 @@ const AdminDashboard: React.FC = () => {
       {/* 4. GUEST REVIEWS / RATINGS VIEW */}
       {activeTab === 'ratings' && (
         <div className="space-y-6 animate-fade-in">
-          <div>
-            <h3 className="font-logo font-extrabold text-lg text-neutral-700 dark:text-neutral-200">Guest Review Logs</h3>
-            <p className="text-xs text-neutral-500">Live average scores and rating surveys collected upon checkout</p>
+          <div className="flex flex-wrap items-center justify-between gap-4">
+            <div>
+              <h3 className="font-logo font-extrabold text-lg text-neutral-700 dark:text-neutral-200">
+                {ratingsSubTab === 'checkout' ? 'Guest Review Logs' : 'Website Testimonials Moderation'}
+              </h3>
+              <p className="text-xs text-neutral-500">
+                {ratingsSubTab === 'checkout' 
+                  ? 'Live average scores and rating surveys collected upon checkout' 
+                  : 'Approve, edit, or reject customer-submitted testimonials displayed on the homepage'}
+              </p>
+            </div>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            
-            {/* Rating Scores Breakdown */}
-            <div className="bg-white dark:bg-bg-dark border border-neutral-200 dark:border-neutral-800 rounded-3xl p-6 shadow-sm glass space-y-4">
-              <h4 className="font-logo font-extrabold text-sm text-neutral-500 uppercase">Review Breakdowns</h4>
-              
-              <div className="space-y-3 font-semibold text-xs text-neutral-600 dark:text-neutral-300">
-                {['Food Quality', 'Service Quality', 'Ambience'].map((aspect, idx) => {
-                  let avg = 4.8;
-                  if (ratings.length > 0) {
-                    const sum = ratings.reduce((acc, r) => {
-                      if (idx === 0) return acc + r.food;
-                      if (idx === 1) return acc + r.service;
-                      return acc + r.ambience;
-                    }, 0);
-                    avg = Math.round((sum / ratings.length) * 10) / 10;
-                  }
-                  
-                  return (
-                    <div key={aspect} className="space-y-1">
-                      <div className="flex justify-between">
-                        <span>{aspect}</span>
-                        <span className="font-logo font-extrabold text-maroon dark:text-saffron">⭐ {avg} / 5.0</span>
-                      </div>
-                      <div className="h-1.5 w-full bg-neutral-100 dark:bg-neutral-800 rounded-full overflow-hidden">
-                        <div 
-                          className="h-full bg-maroon dark:bg-saffron rounded-full transition-all" 
-                          style={{ width: `${(avg / 5) * 100}%` }}
-                        ></div>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
+          {/* Sub-tab Selection */}
+          <div className="flex gap-2 border-b border-neutral-200 dark:border-neutral-800 pb-3">
+            <button
+              onClick={() => setRatingsSubTab('checkout')}
+              className={`px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                ratingsSubTab === 'checkout'
+                  ? 'bg-maroon text-white dark:bg-saffron dark:text-maroon shadow-md'
+                  : 'bg-neutral-100 hover:bg-neutral-200 dark:bg-neutral-850 dark:hover:bg-neutral-800 text-neutral-600 dark:text-neutral-300'
+              }`}
+            >
+              ⭐ Checkout Feedback
+            </button>
+            <button
+              onClick={() => setRatingsSubTab('website')}
+              className={`px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                ratingsSubTab === 'website'
+                  ? 'bg-maroon text-white dark:bg-saffron dark:text-maroon shadow-md'
+                  : 'bg-neutral-100 hover:bg-neutral-200 dark:bg-neutral-850 dark:hover:bg-neutral-800 text-neutral-600 dark:text-neutral-300'
+              }`}
+            >
+              🌐 Website Testimonials
+            </button>
+          </div>
 
-            {/* Comment logs */}
-            <div className="md:col-span-2 bg-white dark:bg-bg-dark border border-neutral-200 dark:border-neutral-800 rounded-3xl p-6 shadow-sm glass space-y-4">
-              <h4 className="font-logo font-extrabold text-sm text-neutral-500 uppercase">Recent Guest Comments</h4>
+          {ratingsSubTab === 'checkout' ? (
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 animate-fade-in">
               
-              <div className="space-y-4 max-h-[360px] overflow-y-auto pr-2 scrollbar-thin">
-                {ratings.length === 0 ? (
-                  <div className="text-center py-12 text-neutral-400 italic text-xs">No guest reviews submitted yet.</div>
-                ) : (
-                  [...ratings].reverse().map(r => {
-                    const singleAvg = Math.round(((r.food + r.service + r.ambience) / 3) * 10) / 10;
+              {/* Rating Scores Breakdown */}
+              <div className="bg-white dark:bg-bg-dark border border-neutral-200 dark:border-neutral-800 rounded-3xl p-6 shadow-sm glass space-y-4">
+                <h4 className="font-logo font-extrabold text-sm text-neutral-500 uppercase">Review Breakdowns</h4>
+                
+                <div className="space-y-3 font-semibold text-xs text-neutral-600 dark:text-neutral-300">
+                  {['Food Quality', 'Service Quality', 'Ambience'].map((aspect, idx) => {
+                    let avg = 4.8;
+                    if (ratings.length > 0) {
+                      const sum = ratings.reduce((acc, r) => {
+                        if (idx === 0) return acc + r.food;
+                        if (idx === 1) return acc + r.service;
+                        return acc + r.ambience;
+                      }, 0);
+                      avg = Math.round((sum / ratings.length) * 10) / 10;
+                    }
+                    
                     return (
-                      <div key={r.id} className="border border-neutral-150 dark:border-neutral-850 p-4 rounded-2xl bg-neutral-50/50 dark:bg-neutral-850/10 space-y-2">
-                        <div className="flex flex-wrap items-center justify-between gap-2">
-                          <div>
-                            <h5 className="font-logo font-bold text-xs text-neutral-700 dark:text-neutral-200">{r.customerName}</h5>
-                            <span className="text-[9px] text-neutral-400 block mt-0.5">{r.customerPhone} • {new Date(r.timestamp).toLocaleDateString()}</span>
-                          </div>
-                          <div className="flex items-center gap-1 bg-yellow-500/10 border border-yellow-500/20 text-yellow-500 px-2 py-0.5 rounded text-[10px] font-extrabold font-logo">
-                            ⭐ {singleAvg} / 5.0
-                          </div>
+                      <div key={aspect} className="space-y-1">
+                        <div className="flex justify-between">
+                          <span>{aspect}</span>
+                          <span className="font-logo font-extrabold text-maroon dark:text-saffron">⭐ {avg} / 5.0</span>
                         </div>
-
-                        {r.comment && (
-                          <p className="text-xs text-neutral-500 dark:text-neutral-400 leading-relaxed italic bg-white dark:bg-bg-dark border border-neutral-100 dark:border-neutral-805 p-2.5 rounded-xl">
-                            "{r.comment}"
-                          </p>
-                        )}
+                        <div className="h-1.5 w-full bg-neutral-100 dark:bg-neutral-800 rounded-full overflow-hidden">
+                          <div 
+                            className="h-full bg-maroon dark:bg-saffron rounded-full transition-all" 
+                            style={{ width: `${(avg / 5) * 100}%` }}
+                          ></div>
+                        </div>
                       </div>
                     );
-                  })
+                  })}
+                </div>
+              </div>
+
+              {/* Comment logs */}
+              <div className="md:col-span-2 bg-white dark:bg-bg-dark border border-neutral-200 dark:border-neutral-800 rounded-3xl p-6 shadow-sm glass space-y-4">
+                <h4 className="font-logo font-extrabold text-sm text-neutral-500 uppercase">Recent Guest Comments</h4>
+                
+                <div className="space-y-4 max-h-[360px] overflow-y-auto pr-2 scrollbar-thin">
+                  {ratings.length === 0 ? (
+                    <div className="text-center py-12 text-neutral-400 italic text-xs">No guest reviews submitted yet.</div>
+                  ) : (
+                    [...ratings].reverse().map(r => {
+                      const singleAvg = Math.round(((r.food + r.service + r.ambience) / 3) * 10) / 10;
+                      return (
+                        <div key={r.id} className="border border-neutral-150 dark:border-neutral-850 p-4 rounded-2xl bg-neutral-50/50 dark:bg-neutral-850/10 space-y-2">
+                          <div className="flex flex-wrap items-center justify-between gap-2">
+                            <div>
+                              <h5 className="font-logo font-bold text-xs text-neutral-700 dark:text-neutral-200">{r.customerName}</h5>
+                              <span className="text-[9px] text-neutral-400 block mt-0.5">{r.customerPhone} • {new Date(r.timestamp).toLocaleDateString()}</span>
+                            </div>
+                            <div className="flex items-center gap-1 bg-yellow-500/10 border border-yellow-500/20 text-yellow-500 px-2 py-0.5 rounded text-[10px] font-extrabold font-logo">
+                              ⭐ {singleAvg} / 5.0
+                            </div>
+                          </div>
+
+                          {r.comment && (
+                            <p className="text-xs text-neutral-500 dark:text-neutral-400 leading-relaxed italic bg-white dark:bg-bg-dark border border-neutral-100 dark:border-neutral-805 p-2.5 rounded-xl">
+                              "{r.comment}"
+                            </p>
+                          )}
+                        </div>
+                      );
+                    })
+                  )}
+                </div>
+              </div>
+
+            </div>
+          ) : (
+            <div className="space-y-6 animate-fade-in">
+              <div className="flex flex-wrap items-center justify-between gap-4 bg-white dark:bg-bg-dark border border-neutral-200 dark:border-neutral-800 p-4 rounded-3xl shadow-sm glass">
+                {/* Filter controls */}
+                <div className="flex flex-wrap gap-1.5">
+                  {(['ALL', 'PENDING', 'APPROVED', 'REJECTED'] as const).map((filter) => {
+                    const count = filter === 'ALL' 
+                      ? reviews.length 
+                      : reviews.filter(r => r.status === filter).length;
+                    return (
+                      <button
+                        key={filter}
+                        onClick={() => setReviewFilter(filter)}
+                        className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                          reviewFilter === filter
+                            ? 'bg-maroon text-white dark:bg-saffron dark:text-maroon shadow-sm'
+                            : 'bg-neutral-50 dark:bg-neutral-850 hover:bg-neutral-100 dark:hover:bg-neutral-800 text-neutral-600 dark:text-neutral-400 border border-neutral-200/50 dark:border-neutral-800/50'
+                        }`}
+                      >
+                        {filter === 'ALL' ? 'All Reviews' : filter === 'PENDING' ? 'Pending' : filter === 'APPROVED' ? 'Approved' : 'Rejected'} ({count})
+                      </button>
+                    );
+                  })}
+                </div>
+                
+                {/* Add review manually */}
+                <button
+                  onClick={() => {
+                    setReviewForm({ name: '', rating: 5, message: '', status: 'APPROVED' });
+                    setShowAddReviewForm(true);
+                  }}
+                  className="flex items-center gap-1.5 px-4 py-2 bg-maroon text-white dark:bg-saffron dark:text-maroon font-bold text-xs rounded-xl shadow-md transition-all hover:opacity-90 cursor-pointer border-none"
+                >
+                  <PlusCircle className="w-4 h-4" /> Add Review Manually
+                </button>
+              </div>
+
+              {/* Reviews Grid / List */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {reviews.filter(r => reviewFilter === 'ALL' ? true : r.status === reviewFilter).length === 0 ? (
+                  <div className="md:col-span-2 bg-white dark:bg-bg-dark border border-neutral-200 dark:border-neutral-800 rounded-3xl p-12 text-center text-neutral-400 italic text-xs glass">
+                    No website testimonials match the selected filter.
+                  </div>
+                ) : (
+                  reviews
+                    .filter(r => reviewFilter === 'ALL' ? true : r.status === reviewFilter)
+                    .map((r) => {
+                      return (
+                        <div key={r.id} className="bg-white dark:bg-bg-dark border border-neutral-200 dark:border-neutral-800 rounded-3xl p-5 shadow-sm hover:shadow-md transition-all glass flex flex-col justify-between space-y-4">
+                          <div className="space-y-3">
+                            {/* Header info */}
+                            <div className="flex items-start justify-between gap-2">
+                              <div>
+                                <h5 className="font-logo font-bold text-sm text-neutral-700 dark:text-neutral-200">{r.name}</h5>
+                                <span className="text-[9px] text-neutral-400 block mt-0.5">Submitted on {new Date(r.timestamp).toLocaleDateString()}</span>
+                              </div>
+                              <div className="flex flex-col items-end gap-1.5">
+                                {/* Rating Stars */}
+                                <div className="flex gap-0.5">
+                                  {Array.from({ length: 5 }).map((_, idx) => (
+                                    <Star 
+                                      key={idx}
+                                      className={`w-3.5 h-3.5 ${
+                                        idx < r.rating ? 'text-saffron fill-saffron' : 'text-neutral-300 dark:text-neutral-700'
+                                      }`}
+                                    />
+                                  ))}
+                                </div>
+                                {/* Status badge */}
+                                <span className={`px-2 py-0.5 rounded text-[8px] font-bold uppercase tracking-wider ${
+                                  r.status === 'APPROVED' 
+                                    ? 'bg-green-500/10 text-green-500 border border-green-500/20' 
+                                    : r.status === 'PENDING'
+                                      ? 'bg-yellow-500/10 text-yellow-500 border border-yellow-500/20'
+                                      : 'bg-red-500/10 text-red-500 border border-red-500/20'
+                                }`}>
+                                  {r.status === 'APPROVED' ? 'Approved & Live' : r.status === 'PENDING' ? 'Pending Approval' : 'Rejected'}
+                                </span>
+                              </div>
+                            </div>
+                            
+                            {/* Message */}
+                            <p className="text-xs text-neutral-500 dark:text-neutral-400 leading-relaxed italic bg-neutral-50 dark:bg-neutral-850/20 p-3 rounded-2xl border border-neutral-100 dark:border-neutral-850">
+                              "{r.message}"
+                            </p>
+                          </div>
+
+                          {/* Action controls */}
+                          <div className="flex flex-wrap items-center justify-between border-t border-neutral-100 dark:border-neutral-850 pt-3 gap-2">
+                            <div className="flex gap-1.5">
+                              {r.status !== 'APPROVED' && (
+                                <button
+                                  onClick={() => updateReview(r.id, r.name, r.rating, r.message, 'APPROVED')}
+                                  className="px-2.5 py-1 bg-green-500/10 hover:bg-green-500 text-green-500 hover:text-white border border-green-500/20 rounded-lg text-[10px] font-bold transition-all cursor-pointer"
+                                >
+                                  Approve
+                                </button>
+                              )}
+                              {r.status !== 'REJECTED' && (
+                                <button
+                                  onClick={() => updateReview(r.id, r.name, r.rating, r.message, 'REJECTED')}
+                                  className="px-2.5 py-1 bg-red-500/10 hover:bg-red-500 text-red-500 hover:text-white border border-red-500/20 rounded-lg text-[10px] font-bold transition-all cursor-pointer"
+                                >
+                                  Reject
+                                </button>
+                              )}
+                            </div>
+                            
+                            <div className="flex gap-1.5">
+                              <button
+                                onClick={() => setEditingReview(r)}
+                                className="p-1.5 text-neutral-500 hover:text-maroon dark:hover:text-saffron bg-neutral-50 dark:bg-neutral-850 hover:bg-neutral-100 dark:hover:bg-neutral-800 rounded-lg border border-neutral-200/50 dark:border-neutral-800/50 transition-all cursor-pointer"
+                                title="Edit review content"
+                              >
+                                <Edit className="w-3.5 h-3.5" />
+                              </button>
+                              <button
+                                onClick={() => {
+                                  if (confirm('Are you sure you want to permanently delete this testimonial?')) {
+                                    deleteReview(r.id);
+                                  }
+                                }}
+                                className="p-1.5 text-neutral-400 hover:text-red-500 bg-neutral-50 dark:bg-neutral-850 hover:bg-neutral-100 dark:hover:bg-neutral-800 rounded-lg border border-neutral-200/50 dark:border-neutral-800/50 transition-all cursor-pointer"
+                                title="Delete review"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })
                 )}
               </div>
             </div>
+          )}
 
-          </div>
+          {/* Edit Review Modal */}
+          {editingReview && (
+            <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[1000] flex items-center justify-center p-4">
+              <div className="bg-white dark:bg-bg-dark border border-neutral-200 dark:border-neutral-800 rounded-3xl p-6 shadow-2xl max-w-md w-full glass animate-scale-in space-y-4">
+                <h4 className="font-logo font-extrabold text-sm text-neutral-700 dark:text-neutral-200">Edit Website Review</h4>
+                <div className="space-y-3">
+                  <div>
+                    <label className="block text-[10px] font-bold text-neutral-500 uppercase mb-1">Reviewer Name</label>
+                    <input 
+                      type="text"
+                      value={editingReview.name}
+                      onChange={(e) => setEditingReview({ ...editingReview, name: e.target.value })}
+                      className="w-full px-3.5 py-2 border border-neutral-200 dark:border-neutral-800 rounded-xl bg-neutral-50 dark:bg-neutral-850 text-xs focus:border-maroon outline-none text-neutral-700 dark:text-neutral-200"
+                    />
+                  </div>
+                  
+                  <div>
+                    <label className="block text-[10px] font-bold text-neutral-500 uppercase mb-1">Rating</label>
+                    <div className="flex gap-2">
+                      {[1, 2, 3, 4, 5].map(star => (
+                        <button
+                          key={star}
+                          type="button"
+                          onClick={() => setEditingReview({ ...editingReview, rating: star })}
+                          className="p-1 hover:scale-110 transition-transform cursor-pointer border-none bg-transparent"
+                        >
+                          <Star 
+                            className={`w-6 h-6 ${
+                              star <= editingReview.rating ? 'text-saffron fill-saffron' : 'text-neutral-300 dark:text-neutral-700'
+                            }`}
+                          />
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-[10px] font-bold text-neutral-500 uppercase mb-1">Review Message</label>
+                    <textarea 
+                      rows={4}
+                      value={editingReview.message}
+                      onChange={(e) => setEditingReview({ ...editingReview, message: e.target.value })}
+                      className="w-full px-3.5 py-2 border border-neutral-200 dark:border-neutral-800 rounded-xl bg-neutral-50 dark:bg-neutral-850 text-xs focus:border-maroon outline-none text-neutral-700 dark:text-neutral-200"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-[10px] font-bold text-neutral-500 uppercase mb-1">Approval Status</label>
+                    <select
+                      value={editingReview.status}
+                      onChange={(e) => setEditingReview({ ...editingReview, status: e.target.value as any })}
+                      className="w-full px-3.5 py-2 border border-neutral-200 dark:border-neutral-800 rounded-xl bg-neutral-50 dark:bg-neutral-850 text-xs focus:border-maroon outline-none text-neutral-700 dark:text-neutral-200"
+                    >
+                      <option value="PENDING">Pending Approval</option>
+                      <option value="APPROVED">Approved & Live</option>
+                      <option value="REJECTED">Rejected</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div className="flex justify-end gap-2 pt-2">
+                  <button 
+                    onClick={() => setEditingReview(null)}
+                    className="px-4 py-2 border border-neutral-200 dark:border-neutral-800 rounded-xl text-xs font-bold text-neutral-500 hover:bg-neutral-50 dark:hover:bg-neutral-850 cursor-pointer"
+                  >
+                    Cancel
+                  </button>
+                  <button 
+                    onClick={() => {
+                      updateReview(editingReview.id, editingReview.name, editingReview.rating, editingReview.message, editingReview.status);
+                      setEditingReview(null);
+                    }}
+                    className="px-4 py-2 bg-maroon text-white dark:bg-saffron dark:text-maroon rounded-xl text-xs font-bold shadow-md hover:opacity-90 cursor-pointer border-none"
+                  >
+                    Save Changes
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Add Review Modal */}
+          {showAddReviewForm && (
+            <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[1000] flex items-center justify-center p-4">
+              <div className="bg-white dark:bg-bg-dark border border-neutral-200 dark:border-neutral-800 rounded-3xl p-6 shadow-2xl max-w-md w-full glass animate-scale-in space-y-4">
+                <h4 className="font-logo font-extrabold text-sm text-neutral-700 dark:text-neutral-200">Add Website Review Manually</h4>
+                <div className="space-y-3">
+                  <div>
+                    <label className="block text-[10px] font-bold text-neutral-500 uppercase mb-1">Reviewer Name</label>
+                    <input 
+                      type="text"
+                      required
+                      placeholder="e.g. John Doe"
+                      value={reviewForm.name}
+                      onChange={(e) => setReviewForm({ ...reviewForm, name: e.target.value })}
+                      className="w-full px-3.5 py-2 border border-neutral-200 dark:border-neutral-800 rounded-xl bg-neutral-50 dark:bg-neutral-850 text-xs focus:border-maroon outline-none text-neutral-700 dark:text-neutral-200"
+                    />
+                  </div>
+                  
+                  <div>
+                    <label className="block text-[10px] font-bold text-neutral-500 uppercase mb-1">Rating</label>
+                    <div className="flex gap-2">
+                      {[1, 2, 3, 4, 5].map(star => (
+                        <button
+                          key={star}
+                          type="button"
+                          onClick={() => setReviewForm({ ...reviewForm, rating: star })}
+                          className="p-1 hover:scale-110 transition-transform cursor-pointer border-none bg-transparent"
+                        >
+                          <Star 
+                            className={`w-6 h-6 ${
+                              star <= reviewForm.rating ? 'text-saffron fill-saffron' : 'text-neutral-300 dark:text-neutral-700'
+                            }`}
+                          />
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-[10px] font-bold text-neutral-500 uppercase mb-1">Review Message</label>
+                    <textarea 
+                      rows={4}
+                      required
+                      placeholder="Type review content here..."
+                      value={reviewForm.message}
+                      onChange={(e) => setReviewForm({ ...reviewForm, message: e.target.value })}
+                      className="w-full px-3.5 py-2 border border-neutral-200 dark:border-neutral-800 rounded-xl bg-neutral-50 dark:bg-neutral-850 text-xs focus:border-maroon outline-none text-neutral-700 dark:text-neutral-200"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-[10px] font-bold text-neutral-500 uppercase mb-1">Status</label>
+                    <select
+                      value={reviewForm.status}
+                      onChange={(e) => setReviewForm({ ...reviewForm, status: e.target.value as any })}
+                      className="w-full px-3.5 py-2 border border-neutral-200 dark:border-neutral-800 rounded-xl bg-neutral-50 dark:bg-neutral-850 text-xs focus:border-maroon outline-none text-neutral-700 dark:text-neutral-200"
+                    >
+                      <option value="PENDING">Pending Approval</option>
+                      <option value="APPROVED">Approved & Live</option>
+                      <option value="REJECTED">Rejected</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div className="flex justify-end gap-2 pt-2">
+                  <button 
+                    onClick={() => {
+                      setShowAddReviewForm(false);
+                      setReviewForm({ name: '', rating: 5, message: '', status: 'APPROVED' });
+                    }}
+                    className="px-4 py-2 border border-neutral-200 dark:border-neutral-800 rounded-xl text-xs font-bold text-neutral-500 hover:bg-neutral-50 dark:hover:bg-neutral-850 cursor-pointer"
+                  >
+                    Cancel
+                  </button>
+                  <button 
+                    onClick={() => {
+                      if (!reviewForm.name.trim() || !reviewForm.message.trim()) return;
+                      addReview(reviewForm.name.trim(), reviewForm.rating, reviewForm.message.trim(), reviewForm.status);
+                      setShowAddReviewForm(false);
+                      setReviewForm({ name: '', rating: 5, message: '', status: 'APPROVED' });
+                    }}
+                    className="px-4 py-2 bg-maroon text-white dark:bg-saffron dark:text-maroon rounded-xl text-xs font-bold shadow-md hover:opacity-90 cursor-pointer border-none"
+                  >
+                    Add Testimonial
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       )}
 

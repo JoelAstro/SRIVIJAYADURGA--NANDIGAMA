@@ -86,6 +86,15 @@ export interface Rating {
   timestamp: number;
 }
 
+export interface Review {
+  id: string;
+  name: string;
+  rating: number;
+  message: string;
+  timestamp: number;
+  status: 'PENDING' | 'APPROVED' | 'REJECTED';
+}
+
 export interface CmsSettings {
   restaurantName: string;
   restaurantTagline: string;
@@ -170,7 +179,11 @@ interface AppContextType {
   upiId: string;
   qrCodeUrl: string;
   ratings: Rating[];
+  reviews: Review[];
   menuItems: any[];
+  addReview: (name: string, rating: number, message: string, status?: 'PENDING' | 'APPROVED' | 'REJECTED') => void;
+  updateReview: (id: string, name: string, rating: number, message: string, status: 'PENDING' | 'APPROVED' | 'REJECTED') => void;
+  deleteReview: (id: string) => void;
   setTheme: (theme: 'dark' | 'light') => void;
   reserveTable: (tableNo: string, customerName: string, customerPhone: string, slot?: string) => boolean;
   releaseTable: (tableNo: string) => void;
@@ -380,6 +393,64 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [ratings, setRatings] = useState<Rating[]>(() => {
     const stored = localStorage.getItem('svd_ratings');
     return stored ? JSON.parse(stored) : [];
+  });
+
+  const [reviews, setReviews] = useState<Review[]>(() => {
+    const stored = localStorage.getItem('svd_reviews');
+    if (stored) return JSON.parse(stored);
+    
+    const defaultReviews: Review[] = [
+      {
+        id: 'REV-1',
+        name: 'Sayyad Shama Ruksar',
+        rating: 5,
+        message: 'Excellent food with authentic taste and fresh ingredients. The service was quick, and the staff were very welcoming. A great place to enjoy a family meal.',
+        timestamp: Date.now() - 1 * 24 * 60 * 60 * 1000,
+        status: 'APPROVED'
+      },
+      {
+        id: 'REV-2',
+        name: 'Joel R.',
+        rating: 5,
+        message: 'One of the best restaurants in the area. The biryani was flavorful, the portions were generous, and the prices were very reasonable. Highly recommended.',
+        timestamp: Date.now() - 2 * 24 * 60 * 60 * 1000,
+        status: 'APPROVED'
+      },
+      {
+        id: 'REV-3',
+        name: 'Praisy R.',
+        rating: 5,
+        message: "I've visited multiple times, and the quality has always been consistent. Clean environment, polite staff, and delicious food make this my go-to restaurant.",
+        timestamp: Date.now() - 3 * 24 * 60 * 60 * 1000,
+        status: 'APPROVED'
+      },
+      {
+        id: 'REV-4',
+        name: 'Pardhu S.',
+        rating: 4,
+        message: 'Very good dining experience. The starters were amazing, and the main course was served hot and fresh. The ambience is comfortable and family-friendly.',
+        timestamp: Date.now() - 4 * 24 * 60 * 60 * 1000,
+        status: 'APPROVED'
+      },
+      {
+        id: 'REV-5',
+        name: 'Mahita P.',
+        rating: 5,
+        message: 'Great value for money! The food tasted homemade, the service was prompt, and the restaurant was well maintained. Will definitely visit again.',
+        timestamp: Date.now() - 5 * 24 * 60 * 60 * 1000,
+        status: 'APPROVED'
+      },
+      {
+        id: 'REV-6',
+        name: 'Veda Jasmitha',
+        rating: 5,
+        message: 'A wonderful place for lunch and dinner. Every dish we ordered was tasty, and the staff ensured we had a pleasant experience throughout our visit.',
+        timestamp: Date.now() - 6 * 24 * 60 * 60 * 1000,
+        status: 'APPROVED'
+      }
+    ];
+    localStorage.setItem('svd_reviews', JSON.stringify(defaultReviews));
+    return defaultReviews;
   });
 
   const [menuItems, setMenuItems] = useState<any[]>(() => {
@@ -935,6 +1006,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   }, [ratings]);
 
   useEffect(() => {
+    localStorage.setItem('svd_reviews', JSON.stringify(reviews));
+  }, [reviews]);
+
+  useEffect(() => {
     localStorage.setItem('svd_menu_items', JSON.stringify(menuItems));
   }, [menuItems]);
 
@@ -1018,6 +1093,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         if (storedUpi) setUpiId(storedUpi);
         if (storedQr) setQrCodeUrl(storedQr);
         if (storedRatings) setRatings(JSON.parse(storedRatings));
+        const storedReviews = localStorage.getItem('svd_reviews');
+        if (storedReviews) setReviews(JSON.parse(storedReviews));
         if (storedMenuItems) setMenuItems(JSON.parse(storedMenuItems));
         if (storedParcelItems) setParcelItems(JSON.parse(storedParcelItems));
         if (storedNotifications) setPaymentNotifications(JSON.parse(storedNotifications));
@@ -1109,6 +1186,29 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const updated = [...ratings, newRating];
     localStorage.setItem('svd_ratings', JSON.stringify(updated));
     setRatings(updated);
+    triggerSync();
+  };
+
+  const addReview = (name: string, rating: number, message: string, status: 'PENDING' | 'APPROVED' | 'REJECTED' = 'PENDING') => {
+    const newReview: Review = {
+      id: 'REV-' + Math.random().toString(36).substr(2, 9).toUpperCase(),
+      name,
+      rating,
+      message,
+      timestamp: Date.now(),
+      status
+    };
+    setReviews(prev => [newReview, ...prev]);
+    triggerSync();
+  };
+
+  const updateReview = (id: string, name: string, rating: number, message: string, status: 'PENDING' | 'APPROVED' | 'REJECTED') => {
+    setReviews(prev => prev.map(r => r.id === id ? { ...r, name, rating, message, status } : r));
+    triggerSync();
+  };
+
+  const deleteReview = (id: string) => {
+    setReviews(prev => prev.filter(r => r.id !== id));
     triggerSync();
   };
 
@@ -1513,7 +1613,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       upiId,
       qrCodeUrl,
       ratings,
+      reviews,
       menuItems,
+      addReview,
+      updateReview,
+      deleteReview,
       setTheme,
       reserveTable,
       releaseTable,

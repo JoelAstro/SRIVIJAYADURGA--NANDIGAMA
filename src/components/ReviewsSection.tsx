@@ -1,76 +1,28 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { Star, User, MessageSquareCode, PlusCircle } from 'lucide-react';
-
-interface Review {
-  id: string;
-  name: string;
-  rating: number;
-  message: string;
-  timestamp: number;
-}
-
-const DEFAULT_REVIEWS: Review[] = [
-  {
-    id: '1',
-    name: 'K. Rajesh',
-    rating: 5,
-    message: 'The Chicken Dum Biryani here is absolutely legendary. Authentic spices, perfect texture, and very generous portions. Definitely coming back!',
-    timestamp: Date.now() - 3 * 24 * 60 * 60 * 1000
-  },
-  {
-    id: '2',
-    name: 'Nikhitha G.',
-    rating: 4,
-    message: 'Excellent dining experience. The A/C hall was really clean and comfortable. Tried Paneer Majestic and Butter Naan, both were delicious.',
-    timestamp: Date.now() - 5 * 24 * 60 * 60 * 1000
-  },
-  {
-    id: '3',
-    name: 'M. Sridhar',
-    rating: 5,
-    message: 'Hands down the best catering service in Nandigama. We booked them for our family function and everyone was full of praise for the food quality.',
-    timestamp: Date.now() - 10 * 24 * 60 * 60 * 1000
-  }
-];
+import { useApp } from '../context/AppContext';
 
 const ReviewsSection: React.FC = () => {
-  const [reviews, setReviews] = useState<Review[]>([]);
+  const { reviews, addReview } = useApp();
   const [name, setName] = useState('');
   const [rating, setRating] = useState(5);
   const [message, setMessage] = useState('');
   const [showForm, setShowForm] = useState(false);
 
-  // Load reviews
-  useEffect(() => {
-    const stored = localStorage.getItem('svd_reviews');
-    if (stored) {
-      setReviews(JSON.parse(stored));
-    } else {
-      setReviews(DEFAULT_REVIEWS);
-      localStorage.setItem('svd_reviews', JSON.stringify(DEFAULT_REVIEWS));
-    }
-  }, []);
-
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!name.trim() || !message.trim()) return;
 
-    const newReview: Review = {
-      id: Date.now().toString(),
-      name: name.trim(),
-      rating,
-      message: message.trim(),
-      timestamp: Date.now()
-    };
-
-    const nextReviews = [newReview, ...reviews];
-    setReviews(nextReviews);
-    localStorage.setItem('svd_reviews', JSON.stringify(nextReviews));
+    // Submit review with PENDING status
+    addReview(name.trim(), rating, message.trim(), 'PENDING');
 
     setName('');
     setRating(5);
     setMessage('');
     setShowForm(false);
+    
+    // Notify the user that the review is pending moderation
+    alert('Thank you! Your testimonial has been submitted and will appear on the homepage once approved by our team.');
   };
 
   const renderStars = (count: number) => {
@@ -173,7 +125,7 @@ const ReviewsSection: React.FC = () => {
 
       {/* Reviews Grid */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        {reviews.map(review => (
+        {reviews.filter(r => r.status === 'APPROVED').map(review => (
           <div 
             key={review.id}
             className="bg-white dark:bg-bg-dark border border-maroon/10 dark:border-saffron/10 p-6 rounded-3xl shadow-sm flex flex-col justify-between hover:shadow-md transition-all duration-300 glass"
