@@ -4,13 +4,15 @@
     "tableNo": "G2",
     "customerName": "Joel",
     "customerPhone": "1234567890",
-    "status": "READY",
+    "status": "PAID",
     "items": [
       {
         "id": 2,
         "name": "Special Veg Biryani",
         "price": 230,
-        "quantity": 1
+        "quantity": 1,
+        "menuItemId": 2,
+        "isAdditional": false
       }
     ],
     "timestamp": 1781326851605,
@@ -34,5 +36,188 @@
     "timestamp": 1781327368296,
     "isParcel": false,
     "specialNotes": "ghj"
+  },
+  {
+    "id": "ORD-D46H8VDWT",
+    "tableNo": "A2",
+    "customerName": "Joel",
+    "customerPhone": "8142638659",
+    "status": "PAID",
+    "items": [
+      {
+        "id": 2,
+        "name": "Special Veg Biryani",
+        "price": 230,
+        "quantity": 1,
+        "menuItemId": 2,
+        "isAdditional": false
+      },
+      {
+        "id": 1,
+        "name": "Veg. Biryani",
+        "price": 180,
+        "quantity": 1,
+        "menuItemId": 1,
+        "isAdditional": false
+      },
+      {
+        "id": 4,
+        "name": "Paneer Biryani",
+        "price": 230,
+        "quantity": 1,
+        "menuItemId": 4,
+        "isAdditional": false
+      }
+    ],
+    "timestamp": 1783668350205,
+    "isParcel": false,
+    "specialNotes": "low sicy"
+  },
+  {
+    "id": "ORD-BCVHG4BS6",
+    "tableNo": "Takeaway",
+    "customerName": "JOEL",
+    "customerPhone": "8142638659",
+    "status": "PAID",
+    "items": [
+      {
+        "id": 1,
+        "name": "Veg. Biryani",
+        "price": 180,
+        "quantity": 1,
+        "menuItemId": 1,
+        "isAdditional": false
+      },
+      {
+        "id": 3,
+        "name": "Mixed Veg Biryani",
+        "price": 240,
+        "quantity": 1,
+        "menuItemId": 3,
+        "isAdditional": false
+      },
+      {
+        "id": 6,
+        "name": "Mushroom Biryani",
+        "price": 230,
+        "quantity": 1,
+        "menuItemId": 6,
+        "isAdditional": false
+      },
+      {
+        "id": 9,
+        "name": "Paneer Tikka Biryani",
+        "price": 260,
+        "quantity": 1,
+        "menuItemId": 9,
+        "isAdditional": false
+      }
+    ],
+    "timestamp": 1783668445135,
+    "isParcel": true,
+    "specialNotes": "...",
+    "paymentMethod": "UPI",
+    "deliveryAddress": "3-13, ARCH ROAD, BESIDE CURCH, NANDIGAMA, AP - 521185",
+    "addressType": "Home"
+  },
+  {
+    "id": "ORD-X2NM2GFOJ",
+    "tableNo": "G2",
+    "customerName": "spicy",
+    "customerPhone": "1234567890",
+    "status": "PAID",
+    "items": [
+      {
+        "id": 1,
+        "name": "Veg. Biryani",
+        "price": 180,
+        "quantity": 1,
+        "menuItemId": 1,
+        "isAdditional": false
+      }
+    ],
+    "timestamp": 1783756177542,
+    "isParcel": false,
+    "specialNotes": "skj"
+  },
+  {
+    "id": "ORD-51EA7HTNL",
+    "tableNo": "Takeaway",
+    "customerName": "Joel",
+    "customerPhone": "1234567890",
+    "status": "COMPLETED",
+    "items": [
+      {
+        "id": 5,
+        "name": "Special Paneer Biryani",
+        "price": 270,
+        "quantity": 2,
+        "menuItemId": 5,
+        "isAdditional": false
+      },
+      {
+        "id": 8,
+        "name": "Kaju Biryani",
+        "price": 240,
+        "quantity": 1,
+        "menuItemId": 8,
+        "isAdditional": false
+      },
+      {
+        "id": 302,
+        "name": "Family Fry Biryani (Bone)",
+        "price": 650,
+        "quantity": 1,
+        "menuItemId": 302,
+        "isAdditional": false
+      },
+      {
+        "id": 301,
+        "name": "Family Dum Biryani",
+        "price": 630,
+        "quantity": 1,
+        "menuItemId": 301,
+        "isAdditional": false
+      },
+      {
+        "id": 307,
+        "name": "Family Prawns Biryani",
+        "price": 750,
+        "quantity": 1,
+        "menuItemId": 307,
+        "isAdditional": false
+      }
+    ],
+    "timestamp": 1783762394472,
+    "isParcel": true,
+    "specialNotes": "",
+    "paymentMethod": "UPI",
+    "deliveryAddress": "3-13, Arch colony, near temple, ndg, Andhra Pradesh - 521185",
+    "addressType": "Home",
+    "latitude": 16.341,
+    "longitude": 80.4892
+  },
+  {
+    "id": "ORD-W78OLTI2E",
+    "tableNo": "Takeaway",
+    "customerName": "erfgh",
+    "customerPhone": "1234567890",
+    "status": "COMPLETED",
+    "items": [
+      {
+        "id": 1,
+        "name": "Veg. Biryani",
+        "price": 180,
+        "quantity": 5,
+        "menuItemId": 1,
+        "isAdditional": false
+      }
+    ],
+    "timestamp": 1783763328427,
+    "isParcel": true,
+    "specialNotes": "",
+    "paymentMethod": "UPI",
+    "deliveryAddress": "3-13, ARCH ROAD, church backside, NANDIGAMA, AP - 521185",
+    "addressType": "Home"
   }
 ]

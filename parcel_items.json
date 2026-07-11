@@ -1,0 +1,299 @@
+[
+  {
+    "id": 201,
+    "name": "Chicken Dum Biryani",
+    "price": 360,
+    "category": "Couple Pack",
+    "type": "non-veg",
+    "image": "/special_dum_biryani.png",
+    "description": "Aromatic Hyderabadi chicken dum biryani. Perfect portion for two people."
+  },
+  {
+    "id": 202,
+    "name": "Chicken Fry Biryani",
+    "price": 370,
+    "category": "Couple Pack",
+    "type": "non-veg",
+    "image": "https://images.unsplash.com/photo-1626777552726-4a6b54c97e46?auto=format&fit=crop&q=80&w=300",
+    "description": "Aromatic biryani rice served with crispy, spicy fried chicken. Serves two."
+  },
+  {
+    "id": 203,
+    "name": "Chicken Boneless Fry Biryani",
+    "price": 400,
+    "category": "Couple Pack",
+    "type": "non-veg",
+    "image": "https://images.unsplash.com/photo-1626777552726-4a6b54c97e46?auto=format&fit=crop&q=80&w=300",
+    "description": "Biryani rice served with boneless fried chicken cubes. Serves two."
+  },
+  {
+    "id": 204,
+    "name": "Chicken Wings Biryani (Dry)",
+    "price": 380,
+    "category": "Couple Pack",
+    "type": "non-veg",
+    "image": "https://images.unsplash.com/photo-1608039829572-78524f79c4c7?auto=format&fit=crop&q=80&w=300",
+    "description": "Dum biryani rice paired with crispy seasoned dry chicken wings. Serves two."
+  },
+  {
+    "id": 205,
+    "name": "Chicken Wings Biryani (Semi Gravy)",
+    "price": 400,
+    "category": "Couple Pack",
+    "type": "non-veg",
+    "image": "https://images.unsplash.com/photo-1608039829572-78524f79c4c7?auto=format&fit=crop&q=80&w=300",
+    "description": "Biryani rice topped with chicken wings cooked in onion gravy. Serves two."
+  },
+  {
+    "id": 206,
+    "name": "Chicken Lollipop Biryani",
+    "price": 400,
+    "category": "Couple Pack",
+    "type": "non-veg",
+    "image": "https://images.unsplash.com/photo-1608039829572-78524f79c4c7?auto=format&fit=crop&q=80&w=300",
+    "description": "Golden fried chicken lollipops served over spiced biryani rice. Serves two."
+  },
+  {
+    "id": 207,
+    "name": "Mutton Biryani",
+    "price": 500,
+    "category": "Couple Pack",
+    "type": "non-veg",
+    "image": "https://images.unsplash.com/photo-1545247181-516773cae76d?auto=format&fit=crop&q=80&w=300",
+    "description": "Basmati rice dum cooked with bone-in tender mutton pieces. Serves two."
+  },
+  {
+    "id": 208,
+    "name": "Prawns Biryani",
+    "price": 460,
+    "category": "Couple Pack",
+    "type": "non-veg",
+    "image": "https://images.unsplash.com/photo-1565557623262-b51c2513a641?auto=format&fit=crop&q=80&w=300",
+    "description": "Biryani rice cooked with spicy marinated prawns and yogurt. Serves two."
+  },
+  {
+    "id": 209,
+    "name": "Biryani Rice",
+    "price": 260,
+    "category": "Couple Pack",
+    "type": "non-veg",
+    "image": "https://images.unsplash.com/photo-1633945274405-b6c8069047b0?auto=format&fit=crop&q=80&w=300",
+    "description": "Flavored biryani basmati rice served in couple pack portion. Serves two."
+  },
+  {
+    "id": 301,
+    "name": "Family Dum Biryani",
+    "price": 630,
+    "category": "Family Pack",
+    "type": "non-veg",
+    "image": "/special_dum_biryani.png",
+    "description": "Hyderabadi chicken dum biryani in family portion. Serves 3-4 people."
+  },
+  {
+    "id": 302,
+    "name": "Family Fry Biryani (Bone)",
+    "price": 650,
+    "category": "Family Pack",
+    "type": "non-veg",
+    "image": "https://images.unsplash.com/photo-1626777552726-4a6b54c97e46?auto=format&fit=crop&q=80&w=300",
+    "description": "Basmati biryani rice served with a large family pack of fried bone-in chicken. Serves 3-4."
+  },
+  {
+    "id": 308,
+    "name": "Family Fry Biryani (BL)",
+    "price": 700,
+    "category": "Family Pack",
+    "type": "non-veg",
+    "image": "https://images.unsplash.com/photo-1626777552726-4a6b54c97e46?auto=format&fit=crop&q=80&w=300",
+    "description": "Basmati biryani rice served with a large family pack of fried boneless chicken. Serves 3-4."
+  },
+  {
+    "id": 303,
+    "name": "Family Wings Biryani (Dry)",
+    "price": 700,
+    "category": "Family Pack",
+    "type": "non-veg",
+    "image": "https://images.unsplash.com/photo-1608039829572-78524f79c4c7?auto=format&fit=crop&q=80&w=300",
+    "description": "Family portion of biryani served with crispy seasoned dry chicken wings. Serves 3-4."
+  },
+  {
+    "id": 304,
+    "name": "Family Wings Biryani (Semi Gravy)",
+    "price": 740,
+    "category": "Family Pack",
+    "type": "non-veg",
+    "image": "https://images.unsplash.com/photo-1608039829572-78524f79c4c7?auto=format&fit=crop&q=80&w=300",
+    "description": "Large pack of wings cooked in onion gravy served over biryani rice. Serves 3-4."
+  },
+  {
+    "id": 305,
+    "name": "Family Lollipop Biryani",
+    "price": 740,
+    "category": "Family Pack",
+    "type": "non-veg",
+    "image": "https://images.unsplash.com/photo-1608039829572-78524f79c4c7?auto=format&fit=crop&q=80&w=300",
+    "description": "A huge portion of lollipop biryani for groups. Serves 3-4."
+  },
+  {
+    "id": 306,
+    "name": "Family Special Biryani",
+    "price": 700,
+    "category": "Family Pack",
+    "type": "non-veg",
+    "image": "/special_dum_biryani.png",
+    "description": "Chef's special boneless chicken tikka family pack. Serves 3-4."
+  },
+  {
+    "id": 307,
+    "name": "Family Prawns Biryani",
+    "price": 750,
+    "category": "Family Pack",
+    "type": "non-veg",
+    "image": "https://images.unsplash.com/photo-1565557623262-b51c2513a641?auto=format&fit=crop&q=80&w=300",
+    "description": "Family portion of spiced prawns biryani. Serves 3-4."
+  },
+  {
+    "id": 309,
+    "name": "Family Special Veg Biryani",
+    "price": 550,
+    "category": "Family Pack",
+    "type": "veg",
+    "image": "https://images.unsplash.com/photo-1563379091339-03b21ab4a4f8?auto=format&fit=crop&q=80&w=300",
+    "description": "Special vegetables dum biryani in family portion size. Serves 3-4."
+  },
+  {
+    "id": 310,
+    "name": "Family Special Paneer Biryani",
+    "price": 590,
+    "category": "Family Pack",
+    "type": "veg",
+    "image": "/paneer_tikka.png",
+    "description": "Rich spiced paneer biryani in family portion size. Serves 3-4."
+  },
+  {
+    "id": 311,
+    "name": "Family Special Mushroom Biryani",
+    "price": 590,
+    "category": "Family Pack",
+    "type": "veg",
+    "image": "https://images.unsplash.com/photo-1599487488170-d11ec9c172f0?auto=format&fit=crop&q=80&w=300",
+    "description": "Special dry spice mushrooms biryani in family portion size. Serves 3-4."
+  },
+  {
+    "id": 401,
+    "name": "Bucket Dum Biryani (Chicken)",
+    "price": 700,
+    "category": "Bucket Biryani",
+    "type": "non-veg",
+    "image": "/special_dum_biryani.png",
+    "description": "Traditional Hyderabadi chicken dum biryani served in a large take-out bucket. Serves 4-5."
+  },
+  {
+    "id": 402,
+    "name": "Bucket Fry Biryani (Chicken)",
+    "price": 780,
+    "category": "Bucket Biryani",
+    "type": "non-veg",
+    "image": "https://images.unsplash.com/photo-1626777552726-4a6b54c97e46?auto=format&fit=crop&q=80&w=300",
+    "description": "Giant bucket of biryani rice topped with crispy bone-in fried chicken. Serves 4-5."
+  },
+  {
+    "id": 406,
+    "name": "Chicken Fry Biryani (Boneless)",
+    "price": 800,
+    "category": "Bucket Biryani",
+    "type": "non-veg",
+    "image": "https://images.unsplash.com/photo-1626777552726-4a6b54c97e46?auto=format&fit=crop&q=80&w=300",
+    "description": "Giant bucket of biryani rice topped with crispy boneless fried chicken. Serves 4-5."
+  },
+  {
+    "id": 403,
+    "name": "Bucket Wings Biryani (Chicken)",
+    "price": 770,
+    "category": "Bucket Biryani",
+    "type": "non-veg",
+    "image": "https://images.unsplash.com/photo-1608039829572-78524f79c4c7?auto=format&fit=crop&q=80&w=300",
+    "description": "A large take-out bucket of wings biryani with extra wings. Serves 4-5."
+  },
+  {
+    "id": 404,
+    "name": "Bucket Wings Biryani (Semi Gravy)",
+    "price": 830,
+    "category": "Bucket Biryani",
+    "type": "non-veg",
+    "image": "https://images.unsplash.com/photo-1608039829572-78524f79c4c7?auto=format&fit=crop&q=80&w=300",
+    "description": "Bucket of biryani rice served with wings cooked in semi-dry gravy. Serves 4-5."
+  },
+  {
+    "id": 405,
+    "name": "Bucket Lollipop Biryani (Chicken)",
+    "price": 830,
+    "category": "Bucket Biryani",
+    "type": "non-veg",
+    "image": "https://images.unsplash.com/photo-1608039829572-78524f79c4c7?auto=format&fit=crop&q=80&w=300",
+    "description": "Super large bucket of lollipop chicken biryani. Serves 4-5."
+  },
+  {
+    "id": 501,
+    "name": "SVD Special Biryani",
+    "price": 460,
+    "category": "Special Biryani",
+    "type": "non-veg",
+    "image": "/special_dum_biryani.png",
+    "description": "SVD signature chef's premium biryani cooked with secret spices."
+  },
+  {
+    "id": 502,
+    "name": "Joint Chicken Biryani",
+    "price": 300,
+    "category": "Special Biryani",
+    "type": "non-veg",
+    "image": "/special_dum_biryani.png",
+    "description": "Delicious dum biryani served with tandoori grilled chicken leg joints."
+  },
+  {
+    "id": 503,
+    "name": "Ulavacharu Chicken Biryani",
+    "price": 330,
+    "category": "Special Biryani",
+    "type": "non-veg",
+    "image": "https://images.unsplash.com/photo-1545247181-516773cae76d?auto=format&fit=crop&q=80&w=300",
+    "description": "Biryani rice flavored with traditional Andhra horsegram soup and chicken."
+  },
+  {
+    "id": 504,
+    "name": "Mixed Non-Veg Biryani",
+    "price": 420,
+    "category": "Special Biryani",
+    "type": "non-veg",
+    "image": "/special_dum_biryani.png",
+    "description": "A royal combination of chicken, mutton, and prawns cooked with basmati."
+  },
+  {
+    "id": 505,
+    "name": "Special Kunda Biryani",
+    "price": 400,
+    "category": "Special Biryani",
+    "type": "non-veg",
+    "image": "https://images.unsplash.com/photo-1563379091339-03b21ab4a4f8?auto=format&fit=crop&q=80&w=300",
+    "description": "Authentic pot-cooked claypot biryani flavored with fresh herbs and spices."
+  },
+  {
+    "id": 506,
+    "name": "Arabian Biryani",
+    "price": 440,
+    "category": "Special Biryani",
+    "type": "non-veg",
+    "image": "/special_dum_biryani.png",
+    "description": "Fragrant Arabian style mandi biryani layered with dry fruits and tender meat."
+  },
+  {
+    "id": 507,
+    "name": "Tandoori Biryani",
+    "price": 440,
+    "category": "Special Biryani",
+    "type": "non-veg",
+    "image": "/tandoori_chicken.png",
+    "description": "Smoky tandoori marinated chicken pieces layered with saffron biryani rice."
+  }
+]

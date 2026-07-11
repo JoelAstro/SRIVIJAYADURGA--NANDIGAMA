@@ -35,7 +35,7 @@ const Clock: React.FC<{ className?: string }> = ({ className }) => (
 );
 
 const ParcelSection: React.FC = () => {
-  const { menuItems, parcelItems, setBgImage, orders, placeParcelOrder } = useApp();
+  const { menuItems, parcelItems, setBgImage, orders, placeParcelOrder, cmsSettings } = useApp();
   const [selectedPack, setSelectedPack] = useState<string>('ALL');
 
   // Modal & Form State
@@ -136,6 +136,31 @@ const ParcelSection: React.FC = () => {
   React.useEffect(() => {
     localStorage.setItem('svd_takeaway_cart', JSON.stringify(takeawayCart));
   }, [takeawayCart]);
+
+  React.useEffect(() => {
+    const handleWaReturn = () => {
+      const isWaiting = localStorage.getItem('svd_wa_waiting') === 'true';
+      if (isWaiting) {
+        localStorage.removeItem('svd_wa_waiting');
+        setShowSuccessModal(false);
+        setShowTrackingModal(true);
+      }
+    };
+
+    const handleVisibility = () => {
+      if (document.visibilityState === 'visible') {
+        handleWaReturn();
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibility);
+    window.addEventListener('focus', handleWaReturn);
+
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibility);
+      window.removeEventListener('focus', handleWaReturn);
+    };
+  }, []);
 
   // Sync state with localStorage if active order is completed
   const activeTrackingId = trackingOrderId || localStorage.getItem('svd_active_takeaway_order_id');
@@ -289,46 +314,37 @@ const ParcelSection: React.FC = () => {
         setSuccessOrderId(orderId);
         setTrackingOrderId(orderId);
         localStorage.setItem('svd_active_takeaway_order_id', orderId);
+        localStorage.setItem('svd_wa_waiting', 'true');
         
         // Build manual WhatsApp link before clearing form states
-        const itemsText = takeawayCart.map(c => `• ${c.name}${c.customization ? ' (' + c.customization + ')' : ''} ×${c.quantity}`).join('\n\n');
+        const itemsText = takeawayCart.map(c => `• ${c.name}${c.customization ? ' (' + c.customization + ')' : ''} ×${c.quantity}`).join('\n');
         const orderTimeStr = new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' });
         
         const rawMessage = `🍽️ NEW TAKEAWAY ORDER
 
-Order ID:
-${orderId}
-
-Customer Name:
-${customerName.trim()}
-
-Phone:
-${customerPhone.trim()}
-
-Delivery Address:
-${fullAddress}
-
-Payment Mode:
-${paymentMethod}
+Order ID: ${orderId}
+Customer Name: ${customerName.trim()}
+Phone Number: ${customerPhone.trim()}
 
 Ordered Items:
 ${itemsText}
 
-Special Instructions:
-${orderNotes.trim() || 'None'}
+Total Amount: ₹${subtotal}
+Pickup Time: Not Selected (Immediate Preparation)
+Special Instructions: ${orderNotes.trim() || 'None'}
 
-Grand Total:
-₹${subtotal}
-
-Order Time:
-${orderTimeStr}
-
-Restaurant:
+Order Time: ${orderTimeStr}
 Sri Vijaya Durga Family Restaurant`;
 
         const encodedMessage = encodeURIComponent(rawMessage);
-        const waLink = `https://wa.me/919966315544?text=${encodedMessage}`;
+        const rawWaNum = cmsSettings?.whatsappNumber || '9030121200';
+        const cleanWaNum = rawWaNum.replace(/\D/g, '');
+        const finalWaNum = cleanWaNum.length === 10 ? `91${cleanWaNum}` : cleanWaNum;
+        const waLink = `https://api.whatsapp.com/send?phone=${finalWaNum}&text=${encodedMessage}`;
         setWhatsappLink(waLink);
+
+        // Automatically open WhatsApp with pre-filled message
+        window.open(waLink, '_blank');
 
         // Show success modal and close checkout modal
         setShowSuccessModal(true);
@@ -1263,7 +1279,7 @@ Sri Vijaya Durga Family Restaurant`;
                 Thank you for ordering from Sri Vijaya Durga Family Restaurant.
               </p>
               <p className="text-[11px] text-neutral-500 dark:text-neutral-400">
-                Your order has been received and sent to our kitchen.
+                Your order has been received and sent to our kitchen. You may also notify the restaurant directly through WhatsApp.
               </p>
             </div>
 

@@ -68,13 +68,17 @@ const GallerySection: React.FC = () => {
   // Interval timer - restarts whenever currentIndex changes to prevent overlapping animations
   useEffect(() => {
     if (galleryList.length <= 1) return;
+    const autoSlide = cmsSettings?.galleryAutoSlide !== false;
+    if (!autoSlide) return;
+
+    const intervalSeconds = cmsSettings?.gallerySlideInterval || 3;
     const interval = setInterval(() => {
       setIsTransitioning(true);
       setCurrentIndex(prev => prev + 1);
-    }, 5000); // Slide every 5 seconds
+    }, intervalSeconds * 1000);
     
     return () => clearInterval(interval);
-  }, [currentIndex, galleryList.length]);
+  }, [currentIndex, galleryList.length, cmsSettings?.galleryAutoSlide, cmsSettings?.gallerySlideInterval]);
 
   // Reset index to 0 after transitioning past the last original slide to achieve an infinite loop
   useEffect(() => {
@@ -125,16 +129,7 @@ const GallerySection: React.FC = () => {
                   alt={image.alt} 
                   className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
                 />
-                
-                {/* Premium floating glassmorphic caption overlay */}
-                {image.alt && (
-                  <div className="absolute inset-x-2 bottom-2 sm:inset-x-3 sm:bottom-3 bg-neutral-950/70 backdrop-blur-md border border-white/10 rounded-xl p-2 sm:p-3 text-white pointer-events-none select-none">
-                    <span className="text-[7px] sm:text-[9px] font-bold text-saffron uppercase tracking-widest mb-0.5 block">Gallery Tour</span>
-                    <p className="text-[9px] sm:text-xs font-semibold leading-normal sm:leading-relaxed drop-shadow-md line-clamp-2">
-                      {image.alt}
-                    </p>
-                  </div>
-                )}
+
               </div>
             </div>
           ))}

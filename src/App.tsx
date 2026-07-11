@@ -106,23 +106,31 @@ const AppContent: React.FC = () => {
           
           {/* Logo Area */}
           <div 
-            className="flex items-center gap-1.5 sm:gap-2 cursor-pointer select-none"
+            className="flex items-center gap-3 sm:gap-4 cursor-pointer select-none"
             onClick={() => navigateTo('#home')}
           >
             {cmsSettings?.restaurantLogo ? (
-              <img src={cmsSettings.restaurantLogo} alt="Restaurant Logo" className="w-8 h-8 sm:w-10 sm:h-10 rounded-full object-cover shadow-md flex-shrink-0" />
+              <div className="relative w-14 h-14 sm:w-[72px] sm:h-[72px] rounded-full p-[3px] bg-gradient-to-tr from-saffron via-amber-500/20 to-saffron shadow-[0_0_12px_rgba(245,158,11,0.22)] flex items-center justify-center flex-shrink-0 border border-saffron/20">
+                <img 
+                  src={cmsSettings.restaurantLogo} 
+                  alt="Restaurant Logo" 
+                  className="w-full h-full rounded-full object-cover brightness-[1.10] contrast-[1.10] saturate-[1.08] shadow-inner" 
+                />
+              </div>
             ) : (
-              <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-maroon dark:bg-saffron flex items-center justify-center text-white dark:text-maroon shadow-md flex-shrink-0">
-                <UtensilsCrossed className="w-4 h-4 sm:w-5 sm:h-5 animate-pulse" />
+              <div className="w-14 h-14 sm:w-[72px] sm:h-[72px] rounded-full bg-maroon dark:bg-saffron flex items-center justify-center text-white dark:text-maroon shadow-[0_0_12px_rgba(245,158,11,0.22)] flex-shrink-0 border-2 border-saffron">
+                <UtensilsCrossed className="w-6 h-6 sm:w-8 sm:h-8 animate-pulse" />
               </div>
             )}
-            <div className="min-w-0">
+            <div className="min-w-0 flex flex-col justify-center">
               <h1 className="font-logo font-extrabold text-sm sm:text-lg leading-tight text-maroon dark:text-saffron truncate">
-                {cmsSettings?.restaurantName || 'Sri Vijaya Durga'}
+                {cmsSettings?.restaurantName || 'Sri Vijaya Durga Restaurant'}
               </h1>
-              <p className="text-[9px] sm:text-xs uppercase tracking-widest text-saffron dark:text-maroon/70 font-semibold font-logo truncate hidden xs:block">
-                {cmsSettings?.restaurantTagline || 'Family AC Restaurant'}
-              </p>
+              <div className="flex items-center justify-center gap-1 text-[9px] sm:text-[11px] text-saffron dark:text-saffron/90 font-medium font-serif italic tracking-widest select-none leading-none mt-1.5 w-full">
+                <span>✦</span>
+                <span className="mx-0.5">Nandigama</span>
+                <span>✦</span>
+              </div>
             </div>
           </div>
 

@@ -30,9 +30,7 @@ const AuthGate: React.FC<AuthGateProps> = ({ role, onSuccess }) => {
     const storedUsers = localStorage.getItem('svd_users_v2');
     let users = storedUsers ? JSON.parse(storedUsers) : [
       { email: 'joelramireddy@gmail.com', password: 'Joel@2007', role: 'admin' },
-      { email: 'admin@srvijayadurga.com', password: '123456', role: 'admin' },
-      { email: 'pardhusadhu5@gmail.com', password: 'Pardhu62815', role: 'kitchen' },
-      { email: 'kitchen@srvijayadurga.com', password: '654321', role: 'kitchen' }
+      { email: 'pardhusadhu5@gmail.com', password: 'Pardhu62815', role: 'kitchen' }
     ];
 
     const matchedUser = users.find((u: any) => u.email.toLowerCase() === email.trim().toLowerCase() && u.role === role);
@@ -56,9 +54,7 @@ const AuthGate: React.FC<AuthGateProps> = ({ role, onSuccess }) => {
     const storedUsers = localStorage.getItem('svd_users_v2');
     const users = storedUsers ? JSON.parse(storedUsers) : [
       { email: 'joelramireddy@gmail.com', password: 'Joel@2007', role: 'admin' },
-      { email: 'admin@srvijayadurga.com', password: '123456', role: 'admin' },
-      { email: 'pardhusadhu5@gmail.com', password: 'Pardhu62815', role: 'kitchen' },
-      { email: 'kitchen@srvijayadurga.com', password: '654321', role: 'kitchen' }
+      { email: 'pardhusadhu5@gmail.com', password: 'Pardhu62815', role: 'kitchen' }
     ];
 
     const userExists = users.some((u: any) => u.email.toLowerCase() === forgotEmail.trim().toLowerCase() && u.role === role);
@@ -89,9 +85,7 @@ const AuthGate: React.FC<AuthGateProps> = ({ role, onSuccess }) => {
     const storedUsers = localStorage.getItem('svd_users_v2');
     let users = storedUsers ? JSON.parse(storedUsers) : [
       { email: 'joelramireddy@gmail.com', password: 'Joel@2007', role: 'admin' },
-      { email: 'admin@srvijayadurga.com', password: '123456', role: 'admin' },
-      { email: 'pardhusadhu5@gmail.com', password: 'Pardhu62815', role: 'kitchen' },
-      { email: 'kitchen@srvijayadurga.com', password: '654321', role: 'kitchen' }
+      { email: 'pardhusadhu5@gmail.com', password: 'Pardhu62815', role: 'kitchen' }
     ];
 
     const idx = users.findIndex((u: any) => u.email.toLowerCase() === forgotEmail.trim().toLowerCase() && u.role === role);
@@ -141,7 +135,7 @@ const AuthGate: React.FC<AuthGateProps> = ({ role, onSuccess }) => {
                   required
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  placeholder={role === 'admin' ? 'joelramireddy@gmail.com' : 'pardhusadhu5@gmail.com'}
+                  placeholder="Enter your email"
                   className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-neutral-300 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-800 text-sm focus:border-maroon dark:focus:border-saffron outline-none transition-all"
                 />
               </div>
@@ -159,7 +153,7 @@ const AuthGate: React.FC<AuthGateProps> = ({ role, onSuccess }) => {
                   maxLength={32}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  placeholder="••••••••"
+                  placeholder="Enter your password"
                   className="w-full pl-10 pr-10 py-2.5 rounded-xl border border-neutral-300 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-800 text-sm focus:border-maroon dark:focus:border-saffron outline-none transition-all"
                 />
                 <button 
@@ -204,7 +198,7 @@ const AuthGate: React.FC<AuthGateProps> = ({ role, onSuccess }) => {
                 required
                 value={forgotEmail}
                 onChange={(e) => setForgotEmail(e.target.value)}
-                placeholder={role === 'admin' ? 'joelramireddy@gmail.com' : 'pardhusadhu5@gmail.com'}
+                placeholder="Enter your email"
                 className="w-full px-4 py-2 rounded-xl border border-neutral-300 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-800 text-sm focus:border-maroon dark:focus:border-saffron outline-none"
               />
               <div className="flex gap-2 justify-end mt-4">

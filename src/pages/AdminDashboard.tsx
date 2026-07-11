@@ -7,7 +7,7 @@ import {
   BarChart3, Users, DollarSign, ClipboardList, LogOut, Download, 
   Printer, QrCode, UtensilsCrossed, Star, Settings, Search, 
   Edit, Trash2, PlusCircle, X, 
-  ToggleLeft, ToggleRight, ShoppingBag, Globe
+  ToggleLeft, ToggleRight, ShoppingBag, Globe, ChevronDown
 } from 'lucide-react';
 
 interface Dish {
@@ -29,13 +29,22 @@ const AdminDashboard: React.FC = () => {
     paymentNotifications, dismissNotification, dismissAllNotifications,
     parcelItems, updateParcelMenu, releaseTable, holdTable, settleBillAndReleaseTable,
     updateOrderStatus, cmsSettings, updateCmsSettings, cmsVersions, restoreCmsVersion,
-    addReview, updateReview, deleteReview
+    addReview, updateReview, deleteReview, API_URL
   } = useApp();
 
   const [isAuthenticated, setIsAuthenticated] = useState(!!adminSession);
   const [activeTab, setActiveTab] = useState<'overview' | 'menu' | 'ratings' | 'invoices' | 'settings' | 'parcels' | 'cms'>('overview');
   
   const [cmsForm, setCmsForm] = useState<any>({});
+
+  const moveItemToOrder = (fromIndex: number, targetOrder: number, arr: any[]) => {
+    const toIndex = Math.max(0, Math.min(arr.length - 1, targetOrder - 1));
+    if (fromIndex === toIndex) return arr;
+    const result = [...arr];
+    const [removed] = result.splice(fromIndex, 1);
+    result.splice(toIndex, 0, removed);
+    return result;
+  };
   const [cmsSubTab, setCmsSubTab] = useState<string>('general');
   const [cmsSaving, setCmsSaving] = useState(false);
   const [newOffer, setNewOffer] = useState({ title: '', description: '', image: '', couponCode: '', isActive: true });
@@ -79,6 +88,27 @@ const AdminDashboard: React.FC = () => {
   const [editingDish, setEditingDish] = useState<Dish | null>(null);
   const [menuFilter, setMenuFilter] = useState<'All' | 'Veg' | 'Non-Veg'>('All');
   const [menuSearch, setMenuSearch] = useState('');
+  const [selectedCategoryFilter, setSelectedCategoryFilter] = useState<string>('All Categories');
+  const [showCategoryDropdown, setShowCategoryDropdown] = useState(false);
+  const [imageSourceMode, setImageSourceMode] = useState<'url' | 'upload'>('url');
+  const [uploadedFile, setUploadedFile] = useState<File | null>(null);
+  const [localPreviewUrl, setLocalPreviewUrl] = useState<string>('');
+  const [isValidUrl, setIsValidUrl] = useState<boolean>(true);
+  const modalBodyRef = React.useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (showDishModal) {
+      setTimeout(() => {
+        if (modalBodyRef.current) {
+          modalBodyRef.current.scrollTop = 0;
+        }
+      }, 50);
+    }
+  }, [showDishModal, editingDish]);
+
+  useEffect(() => {
+    setSelectedCategoryFilter('All Categories');
+  }, [menuSubTab]);
   const [dishForm, setDishForm] = useState({
     name: '',
     price: 0,
@@ -319,31 +349,130 @@ const AdminDashboard: React.FC = () => {
       description: '',
       image: 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&q=80&w=300'
     });
+    setUploadedFile(null);
+    setLocalPreviewUrl('');
+    setImageSourceMode('url');
+    setIsValidUrl(true);
     setShowDishModal(true);
   };
 
   const handleOpenEditDish = (dish: Dish) => {
     setEditingDish(dish);
+    const cleanImage = dish.image ? dish.image.split('?')[0] : 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&q=80&w=300';
     setDishForm({
       name: dish.name,
       price: dish.price,
       category: dish.category,
       type: dish.type,
       description: dish.description || '',
-      image: dish.image ? dish.image.split('?')[0] : 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&q=80&w=300'
+      image: cleanImage
     });
+    setUploadedFile(null);
+    if (cleanImage && cleanImage.startsWith('/uploads/')) {
+      setImageSourceMode('upload');
+      setLocalPreviewUrl(cleanImage);
+    } else {
+      setImageSourceMode('url');
+      setLocalPreviewUrl('');
+    }
+    setIsValidUrl(true);
     setShowDishModal(true);
   };
 
-  const handleSaveDish = (e: React.FormEvent) => {
+  const handleModalFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (file.size > 5 * 1024 * 1024) {
+      alert("File size exceeds maximum limit of 5MB.");
+      return;
+    }
+
+    const validTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
+    if (!validTypes.includes(file.type)) {
+      alert("Unsupported file type. Please upload JPG, JPEG, PNG, or WEBP images only.");
+      return;
+    }
+
+    setUploadedFile(file);
+    const objectUrl = URL.createObjectURL(file);
+    setLocalPreviewUrl(objectUrl);
+  };
+
+  const handleSaveDish = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!dishForm.name || dishForm.price <= 0) {
       alert('Please fill out dish name and a valid positive price.');
       return;
     }
 
-    // Apply cache busting to the image URL to prevent browser caching stale images
+    if (imageSourceMode === 'url') {
+      const val = dishForm.image.trim();
+      const isValid = val === '' || val.startsWith('http://') || val.startsWith('https://') || val.startsWith('/uploads/');
+      if (!isValid) {
+        alert("Please enter a valid image URL starting with http:// or https://");
+        return;
+      }
+    }
+
     let finalImageUrl = dishForm.image.trim();
+
+    // If uploading from device, process upload first
+    if (imageSourceMode === 'upload' && uploadedFile) {
+      try {
+        const base64Content = await new Promise<string>((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = (event) => {
+            const img = new Image();
+            img.onload = () => {
+              const canvas = document.createElement('canvas');
+              let width = img.width;
+              let height = img.height;
+              const MAX_WIDTH = 800;
+              if (width > MAX_WIDTH) {
+                height = Math.round((height * MAX_WIDTH) / width);
+                width = MAX_WIDTH;
+              }
+              canvas.width = width;
+              canvas.height = height;
+
+              const ctx = canvas.getContext('2d');
+              ctx?.drawImage(img, 0, 0, width, height);
+
+              const dataUrl = canvas.toDataURL('image/jpeg', 0.8);
+              resolve(dataUrl.split(',')[1]);
+            };
+            img.onerror = () => reject(new Error("Failed to load image"));
+            img.src = event.target?.result as string;
+          };
+          reader.onerror = () => reject(new Error("Failed to read file"));
+          reader.readAsDataURL(uploadedFile);
+        });
+
+        const res = await fetch(`${API_URL}/api/cms/upload`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            filename: `dish-${Date.now()}-${uploadedFile.name.replace(/[^a-zA-Z0-9.]/g, '_')}`,
+            type: 'image/jpeg',
+            base64: base64Content
+          })
+        });
+        const data = await res.json();
+        if (data.success && data.url) {
+          finalImageUrl = data.url;
+        } else {
+          alert(data.error || "Upload failed. Saving aborted.");
+          return;
+        }
+      } catch (err) {
+        console.error("Failed to upload image file:", err);
+        alert("Image upload failed. Saving aborted.");
+        return;
+      }
+    }
+
+    // Apply cache busting to the image URL to prevent browser caching stale images
     if (finalImageUrl) {
       const cleanUrl = finalImageUrl.split('?')[0];
       finalImageUrl = `${cleanUrl}?v=${Date.now()}`;
@@ -412,14 +541,22 @@ const AdminDashboard: React.FC = () => {
 
   const currentItemsToManage = menuSubTab === 'dine-in' ? menuItems : parcelItems;
 
+  const currentCategories = React.useMemo(() => {
+    const cats = Array.from(new Set(currentItemsToManage.map(item => item.category)));
+    return ['All Categories', ...cats];
+  }, [currentItemsToManage]);
+
   const filteredMenuItems = currentItemsToManage.filter(item => {
     const matchesSearch = item.name.toLowerCase().includes(menuSearch.toLowerCase()) || 
                           item.category.toLowerCase().includes(menuSearch.toLowerCase());
     const matchesFilter = menuFilter === 'All' || 
                          (menuFilter === 'Veg' && item.type === 'veg') ||
                          (menuFilter === 'Non-Veg' && item.type === 'non-veg');
-    return matchesSearch && matchesFilter;
+    const matchesCategory = selectedCategoryFilter === 'All Categories' || item.category === selectedCategoryFilter;
+    return matchesSearch && matchesFilter && matchesCategory;
   });
+
+  const previewImageUrl = imageSourceMode === 'url' ? dishForm.image : localPreviewUrl;
 
   // Invoice searching
   const searchedInvoices = invoices.filter(inv => {
@@ -495,7 +632,7 @@ const AdminDashboard: React.FC = () => {
           const base64Content = dataUrl.split(',')[1];
 
           try {
-            const res = await fetch('/api/cms/upload', {
+            const res = await fetch(`${API_URL}/api/cms/upload`, {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({
@@ -523,7 +660,7 @@ const AdminDashboard: React.FC = () => {
       reader.onload = async (event) => {
         const base64Content = (event.target?.result as string).split(',')[1];
         try {
-          const res = await fetch('/api/cms/upload', {
+          const res = await fetch(`${API_URL}/api/cms/upload`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -822,8 +959,7 @@ const AdminDashboard: React.FC = () => {
             </button>
           </div>
 
-          {/* Search and Filters */}
-          <div className="flex flex-wrap gap-4 items-center justify-between bg-white dark:bg-bg-dark p-4 rounded-2xl border border-neutral-200 dark:border-neutral-800 shadow-sm glass">
+          <div className="relative z-30 flex flex-wrap gap-4 items-center justify-between bg-white dark:bg-bg-dark p-4 rounded-2xl border border-neutral-200 dark:border-neutral-800 shadow-sm glass">
             <div className="relative flex-1 min-w-[240px]">
               <span className="absolute inset-y-0 left-0 pl-3 flex items-center text-neutral-400">
                 <Search className="w-4 h-4" />
@@ -837,197 +973,167 @@ const AdminDashboard: React.FC = () => {
               />
             </div>
 
-            <div className="flex gap-2 p-0.5 bg-neutral-100 dark:bg-neutral-800/80 rounded-xl border border-neutral-200 dark:border-neutral-700">
-              {(['All', 'Veg', 'Non-Veg'] as const).map(opt => (
+            <div className="flex flex-wrap items-center gap-3">
+              {/* Category-Based Custom Dropdown (Styling fixed for high-contrast dark theme) */}
+              <div className="relative z-40">
                 <button
-                  key={opt}
-                  onClick={() => setMenuFilter(opt)}
-                  className={`px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase transition-all cursor-pointer ${
-                    menuFilter === opt 
-                      ? 'bg-maroon text-white dark:bg-saffron dark:text-maroon shadow-sm'
-                      : 'text-neutral-550 dark:text-neutral-450 hover:text-neutral-800 dark:hover:text-neutral-200'
-                  }`}
+                  type="button"
+                  onClick={() => setShowCategoryDropdown(!showCategoryDropdown)}
+                  className="flex items-center gap-2 bg-neutral-100 dark:bg-neutral-800/80 px-3.5 py-2 rounded-xl border border-neutral-200 dark:border-neutral-700 text-[11px] font-bold cursor-pointer transition-all hover:bg-neutral-150 dark:hover:bg-neutral-750 text-neutral-800 dark:text-neutral-100 outline-none"
                 >
-                  {opt}
+                  <span className="text-[10px] text-neutral-400 dark:text-neutral-500 uppercase tracking-wider font-extrabold">Category:</span>
+                  <span className="text-neutral-800 dark:text-neutral-100">{selectedCategoryFilter}</span>
+                  <ChevronDown className="w-3.5 h-3.5 text-neutral-500" />
                 </button>
-              ))}
+                
+                {showCategoryDropdown && (
+                  <>
+                    {/* Invisible overlay backdrop to close dropdown when clicking outside */}
+                    <div className="fixed inset-0 z-20" onClick={() => setShowCategoryDropdown(false)}></div>
+                    
+                    {/* Custom styleable options floating panel */}
+                    <div className="absolute right-0 mt-2 w-52 bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-2xl shadow-xl z-50 py-1.5 max-h-64 overflow-y-auto scrollbar-thin animate-fade-in">
+                      {currentCategories.map(cat => (
+                        <button
+                          key={cat}
+                          type="button"
+                          onClick={() => {
+                            setSelectedCategoryFilter(cat);
+                            setShowCategoryDropdown(false);
+                          }}
+                          className={`w-full text-left px-4 py-2.5 text-xs font-bold transition-all cursor-pointer ${
+                            selectedCategoryFilter === cat
+                              ? 'bg-maroon/10 dark:bg-saffron/15 text-maroon dark:text-saffron'
+                              : 'text-neutral-700 dark:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-neutral-800 hover:text-neutral-900 dark:hover:text-white'
+                          }`}
+                        >
+                          {cat}
+                        </button>
+                      ))}
+                    </div>
+                  </>
+                )}
+              </div>
+
+              {/* Veg / Non-Veg Type Filter */}
+              <div className="flex gap-2 p-0.5 bg-neutral-100 dark:bg-neutral-800/80 rounded-xl border border-neutral-200 dark:border-neutral-700">
+                {(['All', 'Veg', 'Non-Veg'] as const).map(opt => (
+                  <button
+                    key={opt}
+                    onClick={() => setMenuFilter(opt)}
+                    className={`px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase transition-all cursor-pointer ${
+                      menuFilter === opt 
+                        ? 'bg-maroon text-white dark:bg-saffron dark:text-maroon shadow-sm'
+                        : 'text-neutral-550 dark:text-neutral-450 hover:text-neutral-800 dark:hover:text-neutral-200'
+                    }`}
+                  >
+                    {opt}
+                  </button>
+                ))}
+              </div>
             </div>
           </div>
 
-          {/* Dishes Table (desktop/tablet) */}
-          <div className="bg-white dark:bg-bg-dark border border-neutral-250 dark:border-neutral-800 rounded-3xl overflow-hidden shadow-sm glass hidden md:block">
-            <div className="overflow-x-auto">
-              <table className="w-full text-left text-xs border-collapse">
-                <thead>
-                  <tr className="bg-neutral-50/50 dark:bg-neutral-800/30 text-neutral-400 font-logo font-extrabold uppercase text-[10px] tracking-wider border-b border-neutral-200 dark:border-neutral-800">
-                    <th className="p-4 w-[35%]">Dish</th>
-                    <th className="p-4 w-[20%]">Category</th>
-                    <th className="p-4 w-[15%]">Price</th>
-                    <th className="p-4 w-[12%]">Type</th>
-                    <th className="p-4 w-[12%]">Availability</th>
-                    <th className="p-4 w-[6%] text-right">Actions</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-neutral-150 dark:divide-neutral-850/60 font-medium">
-                  {filteredMenuItems.length === 0 ? (
-                    <tr>
-                      <td colSpan={6} className="text-center py-10 text-neutral-400 italic">No menu items match search query.</td>
-                    </tr>
-                  ) : (
-                    filteredMenuItems.map(dish => (
-                      <tr 
-                        key={dish.id} 
-                        className={`hover:bg-neutral-50/40 dark:hover:bg-neutral-855/20 transition-all align-middle ${
-                          dish.disabled ? 'bg-neutral-100/30 dark:bg-neutral-855/5 text-neutral-400' : ''
-                        }`}
-                      >
-                        <td className="p-4">
-                          <div className="flex items-center gap-3">
-                            <ImageWithFallback 
-                              src={dish.image} 
-                              alt={dish.name} 
-                              className={`w-10 h-10 rounded-xl overflow-hidden border border-neutral-200 dark:border-neutral-700 flex-shrink-0 object-cover ${dish.disabled ? 'grayscale opacity-60' : ''}`} 
-                            />
-                            <div className="min-w-0">
-                              <h5 className="font-bold text-neutral-800 dark:text-neutral-100 truncate">{dish.name}</h5>
-                              <p className="text-[10px] text-neutral-400 line-clamp-1 max-w-[220px] font-normal">{dish.description}</p>
-                            </div>
-                          </div>
-                        </td>
-                        <td className="p-4 text-neutral-600 dark:text-neutral-300 font-semibold">{dish.category}</td>
-                        <td className="p-4 font-logo font-extrabold text-neutral-805 dark:text-neutral-100 font-logo">₹{dish.price}</td>
-                        <td className="p-4">
-                          <span className={`px-2 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider ${
+          {/* Dishes Compact Card Grid (Fully Responsive Across All Screens) */}
+          {filteredMenuItems.length === 0 ? (
+            <div className="text-center py-16 bg-white dark:bg-bg-dark rounded-3xl border border-neutral-200 dark:border-neutral-800 text-neutral-450 italic text-xs glass">
+              No menu items match search query.
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-3 xl:grid-cols-4 gap-4 relative z-10">
+              {filteredMenuItems.map(dish => (
+                <div 
+                  key={dish.id} 
+                  className={`flex flex-col justify-between p-3.5 bg-white dark:bg-bg-dark border rounded-2xl shadow-xs hover:shadow-md transition-all duration-200 glass relative ${
+                    dish.disabled ? 'border-neutral-200/50 dark:border-neutral-800/50 opacity-70' : 'border-neutral-200 dark:border-neutral-800'
+                  }`}
+                >
+                  <div className="flex gap-3">
+                    {/* Compact Image */}
+                    <div className="w-16 h-16 rounded-xl overflow-hidden bg-neutral-100 dark:bg-neutral-800 border border-neutral-150 dark:border-neutral-800/40 flex-shrink-0 relative">
+                      <ImageWithFallback 
+                        src={dish.image} 
+                        alt={dish.name} 
+                        className={`w-full h-full object-cover ${dish.disabled ? 'grayscale' : ''}`} 
+                      />
+                      {/* Floating type dot on top-left of image */}
+                      <span className={`absolute top-1 left-1 w-2.5 h-2.5 rounded-full border border-white dark:border-neutral-900 shadow-sm ${
+                        dish.type === 'veg' ? 'bg-emerald-500' : 'bg-red-500'
+                      }`}></span>
+                    </div>
+
+                    {/* Dish Main Info */}
+                    <div className="flex-1 min-w-0 flex flex-col justify-between">
+                      <div>
+                        <div className="flex items-start justify-between gap-1.5">
+                          <h4 className="font-logo font-extrabold text-xs text-neutral-850 dark:text-neutral-100 truncate" title={dish.name}>
+                            {dish.name}
+                          </h4>
+                          <span className="font-logo font-black text-[11px] text-maroon dark:text-saffron flex-shrink-0">
+                            ₹{dish.price}
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-1.5 mt-0.5">
+                          <span className="text-[9px] font-bold text-neutral-400 uppercase tracking-wider truncate">
+                            {dish.category}
+                          </span>
+                          <span className={`text-[8px] font-black uppercase px-1 rounded-sm ${
                             dish.type === 'veg' 
-                              ? 'bg-green-500/10 text-green-600 dark:text-green-400 border border-green-500/20' 
-                              : 'bg-red-505/10 text-red-650 dark:text-red-400 border border-red-500/20'
+                              ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400' 
+                              : 'bg-red-500/10 text-red-650 dark:text-red-400'
                           }`}>
                             {dish.type}
                           </span>
-                        </td>
-                        <td className="p-4">
-                          <button
-                            onClick={() => handleToggleDish(dish.id, !!dish.disabled)}
-                            className="focus:outline-none transition-transform active:scale-95 cursor-pointer border-none bg-transparent"
-                          >
-                            {dish.disabled ? (
-                              <div className="flex items-center gap-1.5 text-neutral-450 dark:text-neutral-500 font-semibold">
-                                <ToggleLeft className="w-6 h-6 text-neutral-300 dark:text-neutral-700" />
-                                <span className="text-[10px]">Disabled</span>
-                              </div>
-                            ) : (
-                              <div className="flex items-center gap-1.5 text-emerald-600 dark:text-emerald-400 font-semibold">
-                                <ToggleRight className="w-6 h-6 text-emerald-500" />
-                                <span className="text-[10px]">Enabled</span>
-                              </div>
-                            )}
-                          </button>
-                        </td>
-                        <td className="p-4 text-right">
-                          <div className="flex items-center justify-end gap-1.5">
-                            <button 
-                              onClick={() => handleOpenEditDish(dish)}
-                              className="p-1.5 hover:bg-neutral-105 dark:hover:bg-neutral-800 rounded-lg text-neutral-500 hover:text-maroon dark:hover:text-saffron transition-all cursor-pointer"
-                              title="Edit Dish"
-                            >
-                              <Edit className="w-4 h-4" />
-                            </button>
-                            <button 
-                              onClick={() => handleDeleteDish(dish.id)}
-                              className="p-1.5 hover:bg-neutral-105 dark:hover:bg-neutral-800 rounded-lg text-neutral-400 hover:text-red-500 transition-all cursor-pointer"
-                              title="Delete Dish"
-                            >
-                              <Trash2 className="w-4 h-4" />
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-                    ))
-                  )}
-                </tbody>
-              </table>
-            </div>
-          </div>
-
-          {/* Dishes Card Grid (mobile only) */}
-          <div className="block md:hidden space-y-4">
-            {filteredMenuItems.length === 0 ? (
-              <div className="text-center py-12 bg-white dark:bg-bg-dark rounded-3xl border border-neutral-200 dark:border-neutral-800 text-neutral-400 italic text-xs glass">
-                No menu items match search query.
-              </div>
-            ) : (
-              filteredMenuItems.map(dish => (
-                <div 
-                  key={dish.id} 
-                  className={`bg-white dark:bg-bg-dark border rounded-2xl p-4 shadow-sm glass flex flex-col gap-3 transition-all ${
-                    dish.disabled ? 'border-neutral-200/50 dark:border-neutral-800/60 opacity-75' : 'border-neutral-200 dark:border-neutral-800'
-                  }`}
-                >
-                  <div className="flex items-start gap-4">
-                    <ImageWithFallback 
-                      src={dish.image} 
-                      alt={dish.name} 
-                      className={`w-14 h-14 rounded-xl overflow-hidden border border-neutral-200 dark:border-neutral-700 flex-shrink-0 object-cover ${dish.disabled ? 'grayscale opacity-60' : ''}`} 
-                    />
-                    <div className="flex-1 min-w-0 space-y-1">
-                      <div className="flex items-center justify-between gap-2">
-                        <h5 className="font-logo font-extrabold text-sm text-neutral-805 dark:text-neutral-200 truncate">{dish.name}</h5>
-                        <span className={`px-2 py-0.5 rounded text-[8px] font-extrabold uppercase tracking-wider flex-shrink-0 ${
-                          dish.type === 'veg' ? 'bg-green-500/10 text-green-600 dark:text-green-400 border border-green-500/20' : 'bg-red-505/10 text-red-600 dark:text-red-400 border border-red-500/20'
-                        }`}>
-                          {dish.type}
-                        </span>
+                        </div>
                       </div>
-                      <div className="text-[10px] text-maroon dark:text-saffron font-bold uppercase tracking-wider">{dish.category}</div>
-                      <p className="text-[11px] text-neutral-500 dark:text-neutral-450 line-clamp-2 leading-relaxed font-medium">{dish.description}</p>
+                      <p className="text-[10px] text-neutral-450 dark:text-neutral-500 line-clamp-1 leading-normal">
+                        {dish.description || 'Special signature dish'}
+                      </p>
                     </div>
                   </div>
 
-                  <div className="flex items-center justify-between pt-3 border-t border-neutral-100 dark:border-neutral-850/60">
-                    <span className="font-logo font-black text-sm text-neutral-800 dark:text-neutral-100">₹{dish.price}</span>
-                    
-                    <div className="flex items-center gap-3">
-                      {/* Availability toggle */}
-                      <button
-                        onClick={() => handleToggleDish(dish.id, !!dish.disabled)}
-                        className="focus:outline-none transition-transform active:scale-95 flex items-center gap-1.5 text-[10px] font-bold cursor-pointer border-none bg-transparent"
-                      >
-                        {dish.disabled ? (
-                          <>
-                            <ToggleLeft className="w-6 h-6 text-neutral-300 dark:text-neutral-700" />
-                            <span className="text-neutral-400">Disabled</span>
-                          </>
-                        ) : (
-                          <>
-                            <ToggleRight className="w-6 h-6 text-emerald-500" />
-                            <span className="text-emerald-650 dark:text-emerald-400">Enabled</span>
-                          </>
-                        )}
-                      </button>
+                  {/* Actions Row */}
+                  <div className="flex items-center justify-between pt-2 mt-2 border-t border-neutral-100 dark:border-neutral-800/40">
+                    {/* Availability Toggle */}
+                    <button
+                      onClick={() => handleToggleDish(dish.id, !!dish.disabled)}
+                      className="focus:outline-none transition-transform active:scale-95 flex items-center gap-1 text-[9px] font-bold cursor-pointer border-none bg-transparent"
+                    >
+                      {dish.disabled ? (
+                        <>
+                          <ToggleLeft className="w-5 h-5 text-neutral-350 dark:text-neutral-700" />
+                          <span className="text-neutral-400 dark:text-neutral-500">Disabled</span>
+                        </>
+                      ) : (
+                        <>
+                          <ToggleRight className="w-5 h-5 text-emerald-500" />
+                          <span className="text-emerald-600 dark:text-emerald-405">Enabled</span>
+                        </>
+                      )}
+                    </button>
 
-                      {/* Actions */}
-                      <div className="flex items-center gap-1 border-l border-neutral-100 dark:border-neutral-855 pl-2">
-                        <button 
-                          onClick={() => handleOpenEditDish(dish)}
-                          className="p-1.5 hover:bg-neutral-100 dark:hover:bg-neutral-800 rounded-lg text-neutral-500 hover:text-maroon dark:hover:text-saffron transition-all cursor-pointer"
-                          title="Edit"
-                        >
-                          <Edit className="w-4 h-4" />
-                        </button>
-                        <button 
-                          onClick={() => handleDeleteDish(dish.id)}
-                          className="p-1.5 hover:bg-neutral-100 dark:hover:bg-neutral-800 rounded-lg text-neutral-400 hover:text-red-500 transition-all cursor-pointer"
-                          title="Delete"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
-                      </div>
+                    {/* Edit & Delete Actions */}
+                    <div className="flex items-center gap-0.5 pl-1.5 border-l border-neutral-200 dark:border-neutral-800">
+                      <button 
+                        onClick={() => handleOpenEditDish(dish)}
+                        className="p-1 hover:bg-neutral-105 dark:hover:bg-neutral-800 rounded text-neutral-500 hover:text-maroon dark:hover:text-saffron transition-all cursor-pointer"
+                        title="Edit"
+                      >
+                        <Edit className="w-3.5 h-3.5" />
+                      </button>
+                      <button 
+                        onClick={() => handleDeleteDish(dish.id)}
+                        className="p-1 hover:bg-neutral-105 dark:hover:bg-neutral-800 rounded text-neutral-400 hover:text-red-500 transition-all cursor-pointer"
+                        title="Delete"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
                     </div>
                   </div>
                 </div>
-              ))
-            )}
-          </div>
+              ))}
+            </div>
+          )}
         </div>
       )}
 
@@ -2475,20 +2581,40 @@ const AdminDashboard: React.FC = () => {
                     </div>
                   </div>
                   <div>
-                    <label className="block text-xs font-bold text-neutral-500 mb-1">About Image Showcase</label>
-                    <div className="flex gap-4 items-center">
-                      <input 
-                        type="text" 
-                        value={cmsForm.aboutImage || ''} 
-                        onChange={(e) => setCmsForm({...cmsForm, aboutImage: e.target.value})}
-                        className="flex-1 px-3 py-2.5 rounded-xl border border-neutral-300 dark:border-neutral-750 bg-neutral-50 dark:bg-neutral-800 text-xs font-semibold outline-none"
-                      />
-                      <input 
-                        type="file" 
-                        accept="image/*"
-                        onChange={(e) => handleFileUpload(e, 'aboutImage')}
-                        className="text-xs"
-                      />
+                    <label className="block text-xs font-bold text-neutral-500 mb-2">About Image Showcase</label>
+                    <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 bg-neutral-50/50 dark:bg-neutral-850/10 border border-neutral-200 dark:border-neutral-800 p-4 rounded-2xl">
+                      {/* Image Preview Block */}
+                      <div className="w-24 h-24 rounded-xl overflow-hidden border border-neutral-300 dark:border-neutral-755 bg-neutral-100 dark:bg-neutral-800 flex items-center justify-center relative flex-shrink-0">
+                        {cmsForm.aboutImage ? (
+                          <img 
+                            src={cmsForm.aboutImage} 
+                            alt="About Showcase Preview" 
+                            className="w-full h-full object-cover"
+                          />
+                        ) : (
+                          <span className="text-[10px] text-neutral-450 font-bold text-center px-1">No Image</span>
+                        )}
+                      </div>
+
+                      {/* Upload Button Block */}
+                      <div className="space-y-1.5">
+                        <input 
+                          type="file" 
+                          id="about-image-upload"
+                          accept="image/*"
+                          onChange={(e) => handleFileUpload(e, 'aboutImage')}
+                          className="hidden"
+                        />
+                        <label
+                          htmlFor="about-image-upload"
+                          className="inline-flex items-center gap-1.5 px-4 py-2.5 bg-maroon dark:bg-saffron text-white dark:text-maroon rounded-xl text-xs font-black cursor-pointer shadow-md hover:opacity-90 transition-all select-none"
+                        >
+                          📷 Upload Image
+                        </label>
+                        <p className="text-[9px] text-neutral-450 block">
+                          Supports JPG, JPEG, PNG, WEBP formats. Max 5MB file size.
+                        </p>
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -2587,43 +2713,98 @@ const AdminDashboard: React.FC = () => {
 
               {cmsSubTab === 'gallery' && (
                 <div className="space-y-6">
-                  <div>
-                    <span className="text-[10px] text-neutral-400 font-bold block mb-3 uppercase tracking-wider">Replace and Reorder Gallery Images</span>
+                  {/* Slider Settings Section */}
+                  <div className="bg-neutral-50/50 dark:bg-neutral-850/10 border border-neutral-200 dark:border-neutral-800 p-5 rounded-2xl space-y-4">
+                    <h4 className="font-extrabold text-xs text-neutral-800 dark:text-neutral-200 uppercase tracking-wider flex items-center gap-1.5">
+                      <span>⚙️</span> Gallery Slider Settings
+                    </h4>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                      {JSON.parse(cmsForm.galleryImages || '[]').map((img: any, idx: number, arr: any[]) => (
-                        <div key={img.id || idx} className="border border-neutral-200 dark:border-neutral-800 p-4 rounded-2xl bg-neutral-50/50 dark:bg-neutral-850/10 flex gap-3 relative">
-                          <img src={img.url} alt={img.caption} className="w-20 h-20 rounded-xl object-cover border border-neutral-200 dark:border-neutral-750" />
-                          <div className="flex-1 space-y-2">
-                            <div>
-                              <label className="block text-[10px] font-bold text-neutral-400 uppercase tracking-wider mb-0.5">Image Caption / Title</label>
-                              <input 
-                                type="text"
-                                value={img.caption}
-                                onChange={(e) => {
-                                  const updatedArr = [...arr];
-                                  updatedArr[idx] = { ...img, caption: e.target.value };
-                                  setCmsForm({ ...cmsForm, galleryImages: JSON.stringify(updatedArr) });
-                                }}
-                                className="w-full px-2 py-1 rounded border border-neutral-300 dark:border-neutral-750 bg-white dark:bg-neutral-800 text-xs outline-none"
-                              />
-                            </div>
-                            <div className="flex gap-2 items-center">
-                              <input 
-                                type="file" 
-                                accept="image/*"
-                                onChange={async (e) => {
-                                  const file = e.target.files?.[0];
-                                  if (!file) return;
+                      <div>
+                        <label className="block text-[10px] font-bold text-neutral-455 uppercase tracking-wider mb-2">
+                          Auto Slide Status
+                        </label>
+                        <div className="flex gap-2">
+                          <button
+                            type="button"
+                            onClick={() => setCmsForm({ ...cmsForm, galleryAutoSlide: true })}
+                            className={`flex-1 py-2 px-3 rounded-xl text-xs font-bold transition-all border cursor-pointer ${
+                              cmsForm.galleryAutoSlide !== false
+                                ? 'bg-maroon text-white border-maroon dark:bg-saffron dark:text-maroon dark:border-saffron'
+                                : 'bg-transparent text-neutral-500 border-neutral-300 dark:border-neutral-750 hover:bg-neutral-100 dark:hover:bg-neutral-800'
+                            }`}
+                          >
+                            Enabled
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setCmsForm({ ...cmsForm, galleryAutoSlide: false })}
+                            className={`flex-1 py-2 px-3 rounded-xl text-xs font-bold transition-all border cursor-pointer ${
+                              cmsForm.galleryAutoSlide === false
+                                ? 'bg-maroon text-white border-maroon dark:bg-saffron dark:text-maroon dark:border-saffron'
+                                : 'bg-transparent text-neutral-500 border-neutral-300 dark:border-neutral-750 hover:bg-neutral-100 dark:hover:bg-neutral-800'
+                            }`}
+                          >
+                            Disabled
+                          </button>
+                        </div>
+                      </div>
 
-                                  if (file.size > 5 * 1024 * 1024) {
-                                    alert("File size exceeds 5MB");
-                                    return;
-                                  }
+                      <div>
+                        <label className="block text-[10px] font-bold text-neutral-455 uppercase tracking-wider mb-2">
+                          Auto Slide Interval
+                        </label>
+                        <select
+                          value={cmsForm.gallerySlideInterval || 3}
+                          onChange={(e) => setCmsForm({ ...cmsForm, gallerySlideInterval: parseInt(e.target.value) })}
+                          className="w-full px-3 py-2 rounded-xl border border-neutral-300 dark:border-neutral-750 bg-white dark:bg-neutral-800 text-xs font-semibold outline-none"
+                        >
+                          <option value="2">2 Seconds</option>
+                          <option value="3">3 Seconds</option>
+                          <option value="4">4 Seconds</option>
+                          <option value="5">5 Seconds</option>
+                          <option value="6">6 Seconds</option>
+                          <option value="8">8 Seconds</option>
+                          <option value="10">10 Seconds</option>
+                        </select>
+                      </div>
+                    </div>
+                  </div>
 
-                                  const reader = new FileReader();
-                                  reader.onload = (event) => {
-                                    const imageObj = new Image();
-                                    imageObj.onload = async () => {
+                  {/* Add Image Control Block */}
+                  <div className="flex justify-between items-center bg-neutral-50/50 dark:bg-neutral-850/10 border border-neutral-200 dark:border-neutral-800 p-5 rounded-2xl">
+                    <div>
+                      <h4 className="font-extrabold text-xs text-neutral-800 dark:text-neutral-200">
+                        Showcase Image Cards
+                      </h4>
+                      <p className="text-[10px] text-neutral-450 mt-0.5">
+                        Manage your website gallery photos. Reorder or replace showcase photos dynamically.
+                      </p>
+                    </div>
+                    <div>
+                      <input
+                        type="file"
+                        id="bulk-gallery-upload"
+                        multiple
+                        accept="image/*"
+                        onChange={async (e) => {
+                          const files = e.target.files;
+                          if (!files || files.length === 0) return;
+                          const currentArr = JSON.parse(cmsForm.galleryImages || '[]');
+                          
+                          for (let i = 0; i < files.length; i++) {
+                            const file = files[i];
+                            if (file.size > 5 * 1024 * 1024) {
+                              alert(`File ${file.name} exceeds 5MB size limit.`);
+                              continue;
+                            }
+
+                            try {
+                              const uploadUrl = await new Promise<string>((resolve, reject) => {
+                                const reader = new FileReader();
+                                reader.onload = (event) => {
+                                  const imageObj = new Image();
+                                  imageObj.onload = async () => {
+                                    try {
                                       const canvas = document.createElement('canvas');
                                       let width = imageObj.width;
                                       let height = imageObj.height;
@@ -2638,7 +2819,7 @@ const AdminDashboard: React.FC = () => {
                                       ctx?.drawImage(imageObj, 0, 0, width, height);
 
                                       const base64 = canvas.toDataURL('image/jpeg', 0.75).split(',')[1];
-                                      const uploadRes = await fetch('/api/cms/upload', {
+                                      const uploadRes = await fetch(`${API_URL}/api/cms/upload`, {
                                         method: 'POST',
                                         headers: { 'Content-Type': 'application/json' },
                                         body: JSON.stringify({
@@ -2649,128 +2830,204 @@ const AdminDashboard: React.FC = () => {
                                       });
                                       const uploadData = await uploadRes.json();
                                       if (uploadData.success && uploadData.url) {
-                                        const updatedArr = [...arr];
-                                        updatedArr[idx] = { ...img, url: uploadData.url };
-                                        setCmsForm({ ...cmsForm, galleryImages: JSON.stringify(updatedArr) });
+                                        resolve(uploadData.url);
+                                      } else {
+                                        reject(new Error(uploadData.error || "Upload failed"));
                                       }
-                                    };
-                                    imageObj.src = event.target?.result as string;
+                                    } catch (err) {
+                                      reject(err);
+                                    }
                                   };
-                                  reader.readAsDataURL(file);
-                                }}
-                                className="text-[10px]"
-                              />
-                            </div>
-                          </div>
+                                  imageObj.src = event.target?.result as string;
+                                };
+                                reader.onerror = () => reject(new Error("Read failed"));
+                                reader.readAsDataURL(file);
+                              });
 
-                          <div className="absolute top-2 right-2 flex gap-1.5">
-                            <button
-                              type="button"
-                              disabled={idx === 0}
-                              onClick={() => {
-                                const updatedArr = [...arr];
-                                const temp = updatedArr[idx];
-                                updatedArr[idx] = updatedArr[idx - 1];
-                                updatedArr[idx - 1] = temp;
-                                setCmsForm({ ...cmsForm, galleryImages: JSON.stringify(updatedArr) });
-                              }}
-                              className="w-5 h-5 rounded bg-neutral-100 hover:bg-neutral-200 dark:bg-neutral-800 dark:hover:bg-neutral-700 text-xs font-black flex items-center justify-center cursor-pointer disabled:opacity-30 border-none"
-                            >
-                              ▲
-                            </button>
-                            <button
-                              type="button"
-                              disabled={idx === arr.length - 1}
-                              onClick={() => {
-                                const updatedArr = [...arr];
-                                const temp = updatedArr[idx];
-                                updatedArr[idx] = updatedArr[idx + 1];
-                                updatedArr[idx + 1] = temp;
-                                setCmsForm({ ...cmsForm, galleryImages: JSON.stringify(updatedArr) });
-                              }}
-                              className="w-5 h-5 rounded bg-neutral-100 hover:bg-neutral-200 dark:bg-neutral-800 dark:hover:bg-neutral-700 text-xs font-black flex items-center justify-center cursor-pointer disabled:opacity-30 border-none"
-                            >
-                              ▼
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => {
-                                if (confirm('Are you sure you want to delete this gallery item?')) {
-                                  const updatedArr = arr.filter((_, i) => i !== idx);
-                                  setCmsForm({ ...cmsForm, galleryImages: JSON.stringify(updatedArr) });
-                                }
-                              }}
-                              className="w-5 h-5 rounded bg-rose-50 hover:bg-rose-100 dark:bg-rose-950/20 text-rose-500 text-xs flex items-center justify-center cursor-pointer border-none"
-                            >
-                              ✕
-                            </button>
-                          </div>
-                        </div>
-                      ))}
+                              currentArr.push({
+                                id: 'GAL-' + Date.now() + '-' + Math.random().toString(36).substr(2, 5),
+                                url: uploadUrl,
+                                caption: file.name.substring(0, file.name.lastIndexOf('.')),
+                                alt: file.name.substring(0, file.name.lastIndexOf('.'))
+                              });
+                            } catch (uploadErr) {
+                              console.error("Bulk upload item failed:", uploadErr);
+                            }
+                          }
+
+                          setCmsForm({ ...cmsForm, galleryImages: JSON.stringify(currentArr) });
+                          e.target.value = '';
+                        }}
+                        className="hidden"
+                      />
+                      <label
+                        htmlFor="bulk-gallery-upload"
+                        className="inline-flex items-center gap-1.5 px-4 py-2.5 bg-maroon dark:bg-saffron text-white dark:text-maroon rounded-xl text-xs font-black cursor-pointer shadow-md hover:opacity-90 transition-all select-none"
+                      >
+                        ➕ Add Gallery Images
+                      </label>
                     </div>
                   </div>
 
-                  <div className="border-t border-neutral-150 dark:border-neutral-800 pt-4">
-                    <h5 className="font-extrabold text-xs text-neutral-800 dark:text-neutral-200 mb-3">Upload New Gallery Image</h5>
-                    <div className="flex gap-4 items-center">
-                      <input 
-                        type="file" 
-                        accept="image/*"
-                        onChange={async (e) => {
-                          const file = e.target.files?.[0];
-                          if (!file) return;
+                  {/* Gallery Cards Grid */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">
+                    {JSON.parse(cmsForm.galleryImages || '[]').map((img: any, idx: number, arr: any[]) => {
+                      const orderNum = idx + 1;
+                      return (
+                        <div
+                          key={img.id || idx}
+                          className="bg-neutral-50 dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-2xl shadow-sm overflow-hidden flex flex-col justify-between group"
+                        >
+                          {/* Image Box with Badges */}
+                          <div className="w-full aspect-video bg-neutral-950 relative overflow-hidden flex-shrink-0">
+                            <img
+                              src={img.url}
+                              alt={img.caption}
+                              className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+                            />
+                            {/* Order Number Badge */}
+                            <span className="absolute top-2.5 left-2.5 z-10 px-2 py-0.5 bg-bg-dark/85 backdrop-blur border border-white/10 rounded-lg text-[9px] font-black text-saffron tracking-wider">
+                              ORDER #{orderNum}
+                            </span>
 
-                          if (file.size > 5 * 1024 * 1024) {
-                            alert("File size exceeds 5MB");
-                            return;
-                          }
+                            {/* Position Controls overlay on right */}
+                            <div className="absolute top-2.5 right-2.5 z-10 flex gap-1">
+                              <button
+                                type="button"
+                                disabled={idx === 0}
+                                onClick={() => {
+                                  const updatedArr = [...arr];
+                                  const temp = updatedArr[idx];
+                                  updatedArr[idx] = updatedArr[idx - 1];
+                                  updatedArr[idx - 1] = temp;
+                                  setCmsForm({ ...cmsForm, galleryImages: JSON.stringify(updatedArr) });
+                                }}
+                                className="w-6 h-6 rounded-lg bg-bg-dark/85 hover:bg-bg-dark backdrop-blur border border-white/10 text-white font-extrabold text-[10px] flex items-center justify-center cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed transition-all"
+                                title="Move Up"
+                              >
+                                ▲
+                              </button>
+                              <button
+                                type="button"
+                                disabled={idx === arr.length - 1}
+                                onClick={() => {
+                                  const updatedArr = [...arr];
+                                  const temp = updatedArr[idx];
+                                  updatedArr[idx] = updatedArr[idx + 1];
+                                  updatedArr[idx + 1] = temp;
+                                  setCmsForm({ ...cmsForm, galleryImages: JSON.stringify(updatedArr) });
+                                }}
+                                className="w-6 h-6 rounded-lg bg-bg-dark/85 hover:bg-bg-dark backdrop-blur border border-white/10 text-white font-extrabold text-[10px] flex items-center justify-center cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed transition-all"
+                                title="Move Down"
+                              >
+                                ▼
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  if (confirm('Are you sure you want to delete this gallery image? This will permanently remove it from the showcase.')) {
+                                    const updatedArr = arr.filter((_, i) => i !== idx);
+                                    setCmsForm({ ...cmsForm, galleryImages: JSON.stringify(updatedArr) });
+                                  }
+                                }}
+                                className="w-6 h-6 rounded-lg bg-rose-600 hover:bg-rose-700 border border-rose-500/30 text-white font-extrabold text-[10px] flex items-center justify-center cursor-pointer transition-all"
+                                title="Delete Image"
+                              >
+                                ✕
+                              </button>
+                            </div>
+                          </div>
 
-                          const reader = new FileReader();
-                          reader.onload = (event) => {
-                            const imageObj = new Image();
-                            imageObj.onload = async () => {
-                              const canvas = document.createElement('canvas');
-                              let width = imageObj.width;
-                              let height = imageObj.height;
-                              const MAX_WIDTH = 1000;
-                              if (width > MAX_WIDTH) {
-                                height = Math.round((height * MAX_WIDTH) / width);
-                                width = MAX_WIDTH;
-                              }
-                              canvas.width = width;
-                              canvas.height = height;
-                              const ctx = canvas.getContext('2d');
-                              ctx?.drawImage(imageObj, 0, 0, width, height);
+                          {/* Editable details under the image */}
+                          <div className="p-4 space-y-3">
+                            <div className="flex gap-2">
+                              {/* Replace Image Button */}
+                              <div className="flex-1">
+                                <input
+                                  type="file"
+                                  id={`replace-gallery-${img.id || idx}`}
+                                  accept="image/*"
+                                  onChange={async (e) => {
+                                    const file = e.target.files?.[0];
+                                    if (!file) return;
+                                    if (file.size > 5 * 1024 * 1024) {
+                                      alert("File size exceeds 5MB");
+                                      return;
+                                    }
+                                    const reader = new FileReader();
+                                    reader.onload = (event) => {
+                                      const imageObj = new Image();
+                                      imageObj.onload = async () => {
+                                        try {
+                                          const canvas = document.createElement('canvas');
+                                          let width = imageObj.width;
+                                          let height = imageObj.height;
+                                          const MAX_WIDTH = 1000;
+                                          if (width > MAX_WIDTH) {
+                                            height = Math.round((height * MAX_WIDTH) / width);
+                                            width = MAX_WIDTH;
+                                          }
+                                          canvas.width = width;
+                                          canvas.height = height;
+                                          const ctx = canvas.getContext('2d');
+                                          ctx?.drawImage(imageObj, 0, 0, width, height);
 
-                              const base64 = canvas.toDataURL('image/jpeg', 0.75).split(',')[1];
-                              const uploadRes = await fetch('/api/cms/upload', {
-                                method: 'POST',
-                                headers: { 'Content-Type': 'application/json' },
-                                body: JSON.stringify({
-                                  filename: file.name,
-                                  type: 'image/jpeg',
-                                  base64
-                                })
-                              });
-                              const uploadData = await uploadRes.json();
-                              if (uploadData.success && uploadData.url) {
-                                const currentArr = JSON.parse(cmsForm.galleryImages || '[]');
-                                currentArr.push({
-                                  id: 'GAL-' + Date.now(),
-                                  url: uploadData.url,
-                                  caption: file.name.substring(0, file.name.lastIndexOf('.'))
-                                });
-                                setCmsForm({ ...cmsForm, galleryImages: JSON.stringify(currentArr) });
-                                e.target.value = '';
-                              }
-                            };
-                            imageObj.src = event.target?.result as string;
-                          };
-                          reader.readAsDataURL(file);
-                        }}
-                        className="text-xs"
-                      />
-                    </div>
+                                          const base64 = canvas.toDataURL('image/jpeg', 0.75).split(',')[1];
+                                          const uploadRes = await fetch(`${API_URL}/api/cms/upload`, {
+                                            method: 'POST',
+                                            headers: { 'Content-Type': 'application/json' },
+                                            body: JSON.stringify({
+                                              filename: file.name,
+                                              type: 'image/jpeg',
+                                              base64
+                                            })
+                                          });
+                                          const uploadData = await uploadRes.json();
+                                          if (uploadData.success && uploadData.url) {
+                                            const updatedArr = [...arr];
+                                            updatedArr[idx] = { ...img, url: uploadData.url };
+                                            setCmsForm({ ...cmsForm, galleryImages: JSON.stringify(updatedArr) });
+                                          }
+                                        } catch (err) {
+                                          console.error(err);
+                                        }
+                                      };
+                                      imageObj.src = event.target?.result as string;
+                                    };
+                                    reader.readAsDataURL(file);
+                                  }}
+                                  className="hidden"
+                                />
+                                <label
+                                  htmlFor={`replace-gallery-${img.id || idx}`}
+                                  className="w-full inline-flex items-center justify-center py-2 px-3 rounded-xl border border-neutral-300 dark:border-neutral-750 bg-white dark:bg-neutral-800 text-xs font-bold text-neutral-600 dark:text-neutral-300 cursor-pointer hover:bg-neutral-50 dark:hover:bg-neutral-750 transition-all select-none text-center"
+                                >
+                                  Replace Image
+                                </label>
+                              </div>
+
+                              {/* Display Order Selector */}
+                              <div className="w-24">
+                                <input
+                                  type="number"
+                                  min="1"
+                                  max={arr.length}
+                                  value={orderNum}
+                                  onChange={(e) => {
+                                    const val = parseInt(e.target.value);
+                                    if (isNaN(val) || val < 1 || val > arr.length) return;
+                                    const updatedArr = moveItemToOrder(idx, val, arr);
+                                    setCmsForm({ ...cmsForm, galleryImages: JSON.stringify(updatedArr) });
+                                  }}
+                                  className="w-full px-2.5 py-2 rounded-xl border border-neutral-300 dark:border-neutral-755 bg-white dark:bg-neutral-800 text-xs font-bold text-center outline-none focus:border-maroon dark:focus:border-saffron"
+                                  title="Change display order position"
+                                />
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
                   </div>
                 </div>
               )}
@@ -2827,6 +3084,273 @@ const AdminDashboard: React.FC = () => {
                         onChange={(e) => handleFileUpload(e, 'menuPdfUrl')}
                         className="text-xs"
                       />
+                    </div>
+                  </div>
+
+                  {/* Divider */}
+                  <hr className="border-neutral-200 dark:border-neutral-800 my-6" />
+
+                  {/* Menu Card Pages Management section */}
+                  <div className="space-y-6">
+                    <div className="flex justify-between items-center bg-neutral-50/50 dark:bg-neutral-850/10 border border-neutral-200 dark:border-neutral-800 p-5 rounded-2xl">
+                      <div>
+                        <h4 className="font-extrabold text-xs text-neutral-800 dark:text-neutral-200">
+                          Menu Pages Showcase
+                        </h4>
+                        <p className="text-[10px] text-neutral-450 mt-0.5">
+                          Manage your printed menu card pages. Reorder, add, or replace pages dynamically.
+                        </p>
+                      </div>
+                      <div>
+                        <input
+                          type="file"
+                          id="bulk-menu-pages-upload"
+                          multiple
+                          accept="image/*"
+                          onChange={async (e) => {
+                            const files = e.target.files;
+                            if (!files || files.length === 0) return;
+                            const currentArr = JSON.parse(cmsForm.menuCardPages || '[]');
+                            
+                            for (let i = 0; i < files.length; i++) {
+                              const file = files[i];
+                              if (file.size > 5 * 1024 * 1024) {
+                                alert(`File ${file.name} exceeds 5MB size limit.`);
+                                continue;
+                              }
+
+                              try {
+                                const uploadUrl = await new Promise<string>((resolve, reject) => {
+                                  const reader = new FileReader();
+                                  reader.onload = (event) => {
+                                    const imageObj = new Image();
+                                    imageObj.onload = async () => {
+                                      try {
+                                        const canvas = document.createElement('canvas');
+                                        let width = imageObj.width;
+                                        let height = imageObj.height;
+                                        const MAX_WIDTH = 1000;
+                                        if (width > MAX_WIDTH) {
+                                          height = Math.round((height * MAX_WIDTH) / width);
+                                          width = MAX_WIDTH;
+                                        }
+                                        canvas.width = width;
+                                        canvas.height = height;
+                                        const ctx = canvas.getContext('2d');
+                                        ctx?.drawImage(imageObj, 0, 0, width, height);
+
+                                        const base64 = canvas.toDataURL('image/jpeg', 0.75).split(',')[1];
+                                        const uploadRes = await fetch(`${API_URL}/api/cms/upload`, {
+                                          method: 'POST',
+                                          headers: { 'Content-Type': 'application/json' },
+                                          body: JSON.stringify({
+                                            filename: file.name,
+                                            type: 'image/jpeg',
+                                            base64
+                                          })
+                                        });
+                                        const uploadData = await uploadRes.json();
+                                        if (uploadData.success && uploadData.url) {
+                                          resolve(uploadData.url);
+                                        } else {
+                                          reject(new Error(uploadData.error || "Upload failed"));
+                                        }
+                                      } catch (err) {
+                                        reject(err);
+                                      }
+                                    };
+                                    imageObj.src = event.target?.result as string;
+                                  };
+                                  reader.onerror = () => reject(new Error("Read failed"));
+                                  reader.readAsDataURL(file);
+                                });
+
+                                currentArr.push({
+                                  id: 'MP-' + Date.now() + '-' + Math.random().toString(36).substr(2, 5),
+                                  url: uploadUrl
+                                });
+                              } catch (uploadErr) {
+                                console.error("Menu page upload failed:", uploadErr);
+                              }
+                            }
+
+                            setCmsForm({ ...cmsForm, menuCardPages: JSON.stringify(currentArr) });
+                            e.target.value = '';
+                          }}
+                          className="hidden"
+                        />
+                        <label
+                          htmlFor="bulk-menu-pages-upload"
+                          className="inline-flex items-center gap-1.5 px-4 py-2.5 bg-maroon dark:bg-saffron text-white dark:text-maroon rounded-xl text-xs font-black cursor-pointer shadow-md hover:opacity-90 transition-all select-none"
+                        >
+                          ➕ Add Menu Pages
+                        </label>
+                      </div>
+                    </div>
+
+                    {/* Menu Card Pages Grid */}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">
+                      {JSON.parse(cmsForm.menuCardPages || '[]').map((img: any, idx: number, arr: any[]) => {
+                        const orderNum = idx + 1;
+                        return (
+                          <div
+                            key={img.id || idx}
+                            className="bg-neutral-50 dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-2xl shadow-sm overflow-hidden flex flex-col justify-between group"
+                          >
+                            {/* Image Box with Badges */}
+                            <div className="w-full aspect-[1/1.4] bg-neutral-950 relative overflow-hidden flex-shrink-0">
+                              <img
+                                src={img.url}
+                                alt={`Menu Page ${orderNum}`}
+                                className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+                              />
+                              {/* Order Number Badge */}
+                              <span className="absolute top-2.5 left-2.5 z-10 px-2 py-0.5 bg-bg-dark/85 backdrop-blur border border-white/10 rounded-lg text-[9px] font-black text-saffron tracking-wider">
+                                PAGE #{orderNum}
+                              </span>
+
+                              {/* Position Controls overlay on right */}
+                              <div className="absolute top-2.5 right-2.5 z-10 flex gap-1">
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    if (idx === 0) return;
+                                    const next = moveItemToOrder(idx, idx, arr);
+                                    setCmsForm({ ...cmsForm, menuCardPages: JSON.stringify(next) });
+                                  }}
+                                  disabled={idx === 0}
+                                  className="w-7 h-7 flex items-center justify-center bg-bg-dark/85 border border-white/10 rounded-lg text-white hover:text-saffron transition-all disabled:opacity-50 disabled:hover:text-white cursor-pointer"
+                                  title="Move Left"
+                                >
+                                  ←
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    if (idx === arr.length - 1) return;
+                                    const next = moveItemToOrder(idx, idx + 2, arr);
+                                    setCmsForm({ ...cmsForm, menuCardPages: JSON.stringify(next) });
+                                  }}
+                                  disabled={idx === arr.length - 1}
+                                  className="w-7 h-7 flex items-center justify-center bg-bg-dark/85 border border-white/10 rounded-lg text-white hover:text-saffron transition-all disabled:opacity-50 disabled:hover:text-white cursor-pointer"
+                                  title="Move Right"
+                                >
+                                  →
+                                </button>
+                              </div>
+                            </div>
+
+                            {/* Card Footer Controls */}
+                            <div className="p-3 bg-neutral-50/50 dark:bg-neutral-900/50 border-t border-neutral-100 dark:border-neutral-850 flex items-center justify-between gap-2.5">
+                              {/* Replace Image Button */}
+                              <div className="relative">
+                                <input
+                                  type="file"
+                                  id={`replace-menu-page-${img.id || idx}`}
+                                  accept="image/*"
+                                  className="hidden"
+                                  onChange={async (e) => {
+                                    const file = e.target.files?.[0];
+                                    if (!file) return;
+                                    if (file.size > 5 * 1024 * 1024) {
+                                      alert("File exceeds 5MB size limit.");
+                                      return;
+                                    }
+
+                                    try {
+                                      const reader = new FileReader();
+                                      reader.onload = (event) => {
+                                        const imageObj = new Image();
+                                        imageObj.onload = async () => {
+                                          try {
+                                            const canvas = document.createElement('canvas');
+                                            let width = imageObj.width;
+                                            let height = imageObj.height;
+                                            const MAX_WIDTH = 1000;
+                                            if (width > MAX_WIDTH) {
+                                              height = Math.round((height * MAX_WIDTH) / width);
+                                              width = MAX_WIDTH;
+                                            }
+                                            canvas.width = width;
+                                            canvas.height = height;
+                                            const ctx = canvas.getContext('2d');
+                                            ctx?.drawImage(imageObj, 0, 0, width, height);
+
+                                            const base64 = canvas.toDataURL('image/jpeg', 0.75).split(',')[1];
+                                            const uploadRes = await fetch(`${API_URL}/api/cms/upload`, {
+                                              method: 'POST',
+                                              headers: { 'Content-Type': 'application/json' },
+                                              body: JSON.stringify({
+                                                filename: file.name,
+                                                type: 'image/jpeg',
+                                                base64
+                                              })
+                                            });
+                                            const uploadData = await uploadRes.json();
+                                            if (uploadData.success && uploadData.url) {
+                                              const updated = arr.map((item, itemIdx) => 
+                                                itemIdx === idx ? { ...item, url: uploadData.url } : item
+                                              );
+                                              setCmsForm({ ...cmsForm, menuCardPages: JSON.stringify(updated) });
+                                            } else {
+                                              alert(uploadData.error || "Upload failed");
+                                            }
+                                          } catch (err) {
+                                            console.error(err);
+                                          }
+                                        };
+                                        imageObj.src = event.target?.result as string;
+                                      };
+                                      reader.readAsDataURL(file);
+                                    } catch (err) {
+                                      console.error("Replace file failed:", err);
+                                    }
+                                    e.target.value = '';
+                                  }}
+                                />
+                                <label
+                                  htmlFor={`replace-menu-page-${img.id || idx}`}
+                                  className="px-2.5 py-1.5 border border-neutral-300 dark:border-neutral-700 hover:border-maroon dark:hover:border-saffron rounded-lg text-[10px] font-bold transition-all cursor-pointer inline-block"
+                                >
+                                  Replace Image
+                                </label>
+                              </div>
+
+                              <div className="flex items-center gap-1.5">
+                                <span className="text-[10px] font-bold text-neutral-400">Position:</span>
+                                <input
+                                  type="number"
+                                  min="1"
+                                  max={arr.length}
+                                  value={orderNum}
+                                  onChange={(e) => {
+                                    const val = parseInt(e.target.value);
+                                    if (isNaN(val) || val < 1 || val > arr.length) return;
+                                    const next = moveItemToOrder(idx, val, arr);
+                                    setCmsForm({ ...cmsForm, menuCardPages: JSON.stringify(next) });
+                                  }}
+                                  className="w-10 px-1 py-1 rounded bg-white dark:bg-neutral-800 border border-neutral-300 dark:border-neutral-700 text-center text-xs font-bold"
+                                />
+                              </div>
+
+                              {/* Delete button */}
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  if (confirm("Are you sure you want to delete this menu page?")) {
+                                    const filtered = arr.filter((_, iIdx) => iIdx !== idx);
+                                    setCmsForm({ ...cmsForm, menuCardPages: JSON.stringify(filtered) });
+                                  }
+                                }}
+                                className="p-1.5 text-neutral-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950/10 rounded-lg transition-colors cursor-pointer border-none bg-transparent"
+                                title="Delete Page"
+                              >
+                                ✕
+                              </button>
+                            </div>
+                          </div>
+                        );
+                      })}
                     </div>
                   </div>
                 </div>
@@ -3054,7 +3578,7 @@ const AdminDashboard: React.FC = () => {
                                 ctx?.drawImage(imageObj, 0, 0, width, height);
 
                                 const base64 = canvas.toDataURL('image/jpeg', 0.75).split(',')[1];
-                                const uploadRes = await fetch('/api/cms/upload', {
+                                const uploadRes = await fetch(`${API_URL}/api/cms/upload`, {
                                   method: 'POST',
                                   headers: { 'Content-Type': 'application/json' },
                                   body: JSON.stringify({
@@ -3343,53 +3867,56 @@ const AdminDashboard: React.FC = () => {
       {/* --- ADD / EDIT DISH FORM MODAL --- */}
       {showDishModal && (
         <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="w-full max-w-md bg-white dark:bg-bg-dark border border-neutral-200 dark:border-neutral-800 rounded-3xl shadow-2xl overflow-hidden glass relative">
-            <div className="h-1.5 bg-gradient-to-r from-maroon to-saffron"></div>
+          <div className="w-full max-w-md bg-white dark:bg-bg-dark border border-neutral-200 dark:border-neutral-800 rounded-3xl shadow-2xl overflow-hidden glass relative transition-all max-h-[85vh] md:max-h-[90vh] flex flex-col">
+            <div className="h-1.5 bg-gradient-to-r from-maroon to-saffron flex-shrink-0"></div>
             
-            <form onSubmit={handleSaveDish} className="p-6 space-y-4">
-              <div className="flex items-center justify-between border-b border-neutral-100 dark:border-neutral-800 pb-2">
-                <h3 className="font-logo font-extrabold text-lg text-maroon dark:text-saffron">
-                  {editingDish ? 'Edit Dish details' : 'Add New Dish'}
+            <form onSubmit={handleSaveDish} className="flex flex-col flex-1 overflow-hidden">
+              <div className="flex items-center justify-between border-b border-neutral-100 dark:border-neutral-800 p-6 pb-3 flex-shrink-0">
+                <h3 className="font-logo font-extrabold text-base text-maroon dark:text-saffron uppercase tracking-wider">
+                  {editingDish ? 'Edit Dish Details' : 'Add New Dish'}
                 </h3>
                 <button 
                   type="button" 
                   onClick={() => setShowDishModal(false)}
-                  className="p-1 rounded-full hover:bg-neutral-100 dark:hover:bg-neutral-850"
+                  className="p-1 rounded-full hover:bg-neutral-100 dark:hover:bg-neutral-850 transition-colors cursor-pointer border-none bg-transparent"
                 >
-                  <X className="w-4 h-4" />
+                  <X className="w-4 h-4 text-neutral-500 hover:text-neutral-800 dark:hover:text-neutral-200" />
                 </button>
               </div>
 
-              <div className="space-y-3 text-xs font-semibold text-neutral-500">
+              <div 
+                ref={modalBodyRef}
+                className="overflow-y-auto p-6 pt-3 pb-3 space-y-4 text-xs font-semibold text-neutral-550 dark:text-neutral-450 flex-1 scrollbar-thin"
+              >
                 <div>
-                  <label className="block mb-1">Dish Name</label>
+                  <label className="block mb-1.5 text-neutral-500 dark:text-neutral-400">Dish Name</label>
                   <input 
                     type="text" 
                     required
                     value={dishForm.name}
                     onChange={(e) => setDishForm(prev => ({ ...prev, name: e.target.value }))}
-                    className="w-full px-3 py-2 rounded-xl border border-neutral-300 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-800 text-xs focus:border-maroon dark:focus:border-saffron outline-none text-neutral-800 dark:text-neutral-100"
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-neutral-300 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-800 text-xs focus:border-maroon dark:focus:border-saffron outline-none text-neutral-800 dark:text-neutral-100 font-medium transition-all"
                   />
                 </div>
 
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <label className="block mb-1">Price (INR)</label>
+                    <label className="block mb-1.5 text-neutral-500 dark:text-neutral-400">Price (INR)</label>
                     <input 
                       type="number" 
                       required
                       min={1}
                       value={dishForm.price || ''}
                       onChange={(e) => setDishForm(prev => ({ ...prev, price: Math.max(0, Number(e.target.value)) }))}
-                      className="w-full px-3 py-2 rounded-xl border border-neutral-300 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-800 text-xs focus:border-maroon dark:focus:border-saffron outline-none text-neutral-800 dark:text-neutral-100"
+                      className="w-full px-3.5 py-2.5 rounded-xl border border-neutral-300 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-800 text-xs focus:border-maroon dark:focus:border-saffron outline-none text-neutral-800 dark:text-neutral-100 font-medium transition-all"
                     />
                   </div>
                   <div>
-                    <label className="block mb-1">Type</label>
+                    <label className="block mb-1.5 text-neutral-550 dark:text-neutral-400">Type</label>
                     <select
                       value={dishForm.type}
                       onChange={(e) => setDishForm(prev => ({ ...prev, type: e.target.value as any }))}
-                      className="w-full px-3 py-2 rounded-xl border border-neutral-300 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-800 text-xs focus:border-maroon dark:focus:border-saffron outline-none cursor-pointer text-neutral-850 dark:text-neutral-100 font-semibold"
+                      className="w-full px-3.5 py-2.5 rounded-xl border border-neutral-300 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-800 text-xs focus:border-maroon dark:focus:border-saffron outline-none cursor-pointer text-neutral-850 dark:text-neutral-100 font-semibold transition-all"
                     >
                       <option value="veg">Vegetarian</option>
                       <option value="non-veg">Non-Vegetarian</option>
@@ -3398,12 +3925,12 @@ const AdminDashboard: React.FC = () => {
                 </div>
 
                 <div>
-                  <label className="block mb-1">Category</label>
+                  <label className="block mb-1.5 text-neutral-555 dark:text-neutral-400">Category</label>
                   {menuSubTab === 'takeaway' ? (
                     <select
                       value={dishForm.category}
                       onChange={(e) => setDishForm(prev => ({ ...prev, category: e.target.value }))}
-                      className="w-full px-3 py-2 rounded-xl border border-neutral-300 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-800 text-xs focus:border-maroon dark:focus:border-saffron outline-none cursor-pointer text-neutral-850 dark:text-neutral-100 font-semibold"
+                      className="w-full px-3.5 py-2.5 rounded-xl border border-neutral-300 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-800 text-xs focus:border-maroon dark:focus:border-saffron outline-none cursor-pointer text-neutral-850 dark:text-neutral-100 font-semibold transition-all"
                     >
                       <option value="Couple Pack">Couple Pack</option>
                       <option value="Family Pack">Family Pack</option>
@@ -3413,7 +3940,7 @@ const AdminDashboard: React.FC = () => {
                     <select
                       value={dishForm.category}
                       onChange={(e) => setDishForm(prev => ({ ...prev, category: e.target.value }))}
-                      className="w-full px-3 py-2 rounded-xl border border-neutral-300 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-800 text-xs focus:border-maroon dark:focus:border-saffron outline-none cursor-pointer text-neutral-850 dark:text-neutral-100 font-semibold"
+                      className="w-full px-3.5 py-2.5 rounded-xl border border-neutral-300 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-800 text-xs focus:border-maroon dark:focus:border-saffron outline-none cursor-pointer text-neutral-850 dark:text-neutral-100 font-semibold transition-all"
                     >
                       <option value="Veg Biryani">Veg Biryani</option>
                       <option value="Non-Veg Biryani">Non-Veg Biryani</option>
@@ -3430,39 +3957,102 @@ const AdminDashboard: React.FC = () => {
                 </div>
 
                 <div>
-                  <label className="block mb-1">Image URL</label>
-                  <input 
-                    type="text" 
-                    required
-                    value={dishForm.image}
-                    onChange={(e) => setDishForm(prev => ({ ...prev, image: e.target.value }))}
-                    className="w-full px-3 py-2 rounded-xl border border-neutral-300 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-800 text-xs focus:border-maroon dark:focus:border-saffron outline-none text-neutral-800 dark:text-neutral-100"
-                  />
+                  <label className="block mb-1.5 text-neutral-555 dark:text-neutral-400">Image Source Option</label>
+                  <div className="flex gap-4 mb-2.5">
+                    <label className="flex items-center gap-1.5 cursor-pointer text-[11px] font-bold text-neutral-700 dark:text-neutral-200">
+                      <input 
+                        type="radio" 
+                        name="imageSourceMode" 
+                        value="url"
+                        checked={imageSourceMode === 'url'} 
+                        onChange={() => setImageSourceMode('url')}
+                        className="text-maroon focus:ring-maroon dark:text-saffron dark:focus:ring-saffron"
+                      />
+                      Image URL
+                    </label>
+                    <label className="flex items-center gap-1.5 cursor-pointer text-[11px] font-bold text-neutral-700 dark:text-neutral-200">
+                      <input 
+                        type="radio" 
+                        name="imageSourceMode" 
+                        value="upload"
+                        checked={imageSourceMode === 'upload'} 
+                        onChange={() => setImageSourceMode('upload')}
+                        className="text-maroon focus:ring-maroon dark:text-saffron dark:focus:ring-saffron"
+                      />
+                      Upload from Device
+                    </label>
+                  </div>
+
+                  {imageSourceMode === 'url' ? (
+                    <div>
+                      <input 
+                        type="text" 
+                        required={imageSourceMode === 'url'}
+                        placeholder="Paste image URL (starts with http:// or https://)"
+                        value={dishForm.image}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          setDishForm(prev => ({ ...prev, image: val }));
+                          setIsValidUrl(val.trim() === '' || val.startsWith('http://') || val.startsWith('https://') || val.startsWith('/uploads/'));
+                        }}
+                        className={`w-full px-3.5 py-2.5 rounded-xl border bg-neutral-50 dark:bg-neutral-800 text-xs focus:border-maroon dark:focus:border-saffron outline-none text-neutral-800 dark:text-neutral-100 font-medium transition-all ${
+                          isValidUrl ? 'border-neutral-300 dark:border-neutral-700' : 'border-red-500 dark:border-red-500'
+                        }`}
+                      />
+                      {!isValidUrl && (
+                        <p className="text-[10px] text-red-500 mt-1">Please enter a valid URL starting with http:// or https://</p>
+                      )}
+                    </div>
+                  ) : (
+                    <div>
+                      <input 
+                        type="file" 
+                        required={imageSourceMode === 'upload' && !localPreviewUrl}
+                        accept="image/jpeg,image/jpg,image/png,image/webp"
+                        onChange={handleModalFileChange}
+                        className="w-full text-xs text-neutral-500 file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-semibold file:bg-maroon/10 file:text-maroon dark:file:bg-saffron/10 dark:file:text-saffron hover:file:opacity-80 cursor-pointer"
+                      />
+                    </div>
+                  )}
+                  
+                  {/* Live Image Preview (Option A / Option B derived preview) */}
+                  {previewImageUrl && (
+                    <div className="mt-2.5 rounded-2xl border border-neutral-200 dark:border-neutral-700 overflow-hidden aspect-video bg-neutral-100 dark:bg-neutral-855 flex items-center justify-center relative">
+                      <ImageWithFallback 
+                        src={previewImageUrl} 
+                        alt="Dish Preview" 
+                        className="w-full h-full object-cover" 
+                      />
+                      <span className="absolute bottom-2.5 right-2.5 bg-neutral-950/70 border border-white/10 text-white text-[8px] font-black px-2 py-0.5 rounded uppercase tracking-wider backdrop-blur-xs">
+                        Image Preview
+                      </span>
+                    </div>
+                  )}
                 </div>
 
                 <div>
-                  <label className="block mb-1">Dish Description</label>
+                  <label className="block mb-1.5 text-neutral-500 dark:text-neutral-400">Dish Description</label>
                   <textarea 
                     rows={3}
                     value={dishForm.description}
                     onChange={(e) => setDishForm(prev => ({ ...prev, description: e.target.value }))}
                     placeholder="Short summary of spices, main ingredients..."
-                    className="w-full px-3 py-2 rounded-xl border border-neutral-300 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-800 text-xs focus:border-maroon dark:focus:border-saffron outline-none text-neutral-800 dark:text-neutral-100"
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-neutral-300 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-800 text-xs focus:border-maroon dark:focus:border-saffron outline-none text-neutral-800 dark:text-neutral-100 font-medium transition-all"
                   />
                 </div>
               </div>
 
-              <div className="flex gap-2 justify-end pt-2">
+              <div className="flex gap-2 justify-end border-t border-neutral-100 dark:border-neutral-800 p-6 pt-3 flex-shrink-0 bg-white dark:bg-bg-dark">
                 <button 
                   type="button" 
                   onClick={() => setShowDishModal(false)}
-                  className="px-4 py-2.5 bg-neutral-100 hover:bg-neutral-200 dark:bg-neutral-855 rounded-xl text-xs font-semibold"
+                  className="px-5 py-2.5 bg-red-600 hover:bg-red-700 text-white font-logo font-black text-xs rounded-xl shadow-md transition-all active:scale-95 border-none cursor-pointer"
                 >
                   Cancel
                 </button>
                 <button 
                   type="submit"
-                  className="px-4 py-2.5 bg-maroon text-white dark:bg-saffron dark:text-maroon font-bold text-xs rounded-xl shadow"
+                  className="px-5 py-2.5 bg-maroon text-white dark:bg-saffron dark:text-maroon font-logo font-black text-xs rounded-xl shadow-md transition-all active:scale-95 border-none cursor-pointer"
                 >
                   {editingDish ? 'Update Dish' : 'Add Dish'}
                 </button>

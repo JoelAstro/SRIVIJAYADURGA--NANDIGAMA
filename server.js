@@ -7,6 +7,10 @@ import { fileURLToPath } from 'url';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
+const ordersFilePath = path.join(__dirname, 'orders.json');
+const cmsSettingsFilePath = path.join(__dirname, 'cms_settings.json');
+const cmsVersionsFilePath = path.join(__dirname, 'cms_versions.json');
+
 import { Server } from 'socket.io';
 import cors from 'cors';
 import dotenv from 'dotenv';
@@ -21,7 +25,7 @@ const app = express();
 const server = http.createServer(app);
 
 app.use(cors({ origin: '*', methods: ['GET', 'POST', 'PUT', 'DELETE'] }));
-app.use(express.json());
+app.use(express.json({ limit: '10mb' }));
 
 const io = new Server(server, { cors: { origin: '*', methods: ['GET', 'POST'] } });
 
@@ -107,8 +111,9 @@ app.get('/api/orders', async (req, res) => {
     }));
     res.json(formattedOrders);
   } catch (err) {
-    console.error('[Error] GET /api/orders:', err);
-    res.status(500).json({ error: 'Internal server error' });
+    console.warn('[DB Warning] GET /api/orders failed, falling back to local JSON persistence:', err.message);
+    const localOrders = readJsonFile(ordersFilePath, []);
+    res.json(localOrders);
   }
 });
 
@@ -269,8 +274,33 @@ Thank you for choosing us!`;
     });
 
   } catch (err) {
-    console.error('[Error] POST /api/orders failed database execution:', err);
-    res.status(500).json({ success: false, error: 'Database execution failed: ' + err.message });
+    console.warn('[DB Warning] POST /api/orders failed database execution, falling back to local JSON persistence:', err.message);
+    try {
+      const fallbackOrder = {
+        ...newOrder,
+        items: newOrder.items.map(i => ({
+          ...i,
+          menuItemId: i.id,
+          isAdditional: i.isAdditional || false
+        }))
+      };
+
+      const localOrders = readJsonFile(ordersFilePath, []);
+      const filtered = localOrders.filter(o => o.id !== newOrder.id);
+      filtered.push(fallbackOrder);
+      writeJsonFile(ordersFilePath, filtered);
+
+      io.emit('new-order', newOrder);
+
+      res.status(201).json({
+        success: true,
+        orderId: newOrder.id,
+        order: fallbackOrder
+      });
+    } catch (fallbackErr) {
+      console.error('[Error] Local persistence fallback failed for POST /api/orders:', fallbackErr);
+      res.status(500).json({ success: false, error: 'Local persistence fallback failed: ' + fallbackErr.message });
+    }
   }
 });
 
@@ -348,8 +378,41 @@ app.put('/api/orders/:id', async (req, res) => {
     res.json({ message: 'Order updated', order: updates });
 
   } catch (err) {
-    console.error('[Error] PUT /api/orders/:id:', err);
-    res.status(500).json({ error: 'Internal server error' });
+    console.warn('[DB Warning] PUT /api/orders/:id failed database execution, falling back to local JSON persistence:', err.message);
+    try {
+      const localOrders = readJsonFile(ordersFilePath, []);
+      const orderIdx = localOrders.findIndex(o => o.id === orderId);
+      if (orderIdx !== -1) {
+        const existing = localOrders[orderIdx];
+        const updated = {
+          ...existing,
+          ...updates,
+          items: updates.items ? updates.items.map(i => ({
+            ...i,
+            menuItemId: i.id,
+            isAdditional: i.isAdditional || false
+          })) : existing.items
+        };
+        localOrders[orderIdx] = updated;
+        writeJsonFile(ordersFilePath, localOrders);
+      } else {
+        const fallbackOrder = {
+          id: orderId,
+          ...updates,
+          items: updates.items ? updates.items.map(i => ({
+            ...i,
+            menuItemId: i.id,
+            isAdditional: i.isAdditional || false
+          })) : []
+        };
+        localOrders.push(fallbackOrder);
+        writeJsonFile(ordersFilePath, localOrders);
+      }
+      res.json({ message: 'Order updated via local persistence fallback', order: updates });
+    } catch (fallbackErr) {
+      console.error('[Error] Local persistence fallback failed for PUT /api/orders/:id:', fallbackErr);
+      res.status(500).json({ error: 'Local persistence fallback failed: ' + fallbackErr.message });
+    }
   }
 });
 
@@ -370,13 +433,13 @@ if (!fs.existsSync(uploadsDir)) {
 
 // Fallback configuration
 const DEFAULT_CMS_SETTINGS = {
-  restaurantName: "Sri Vijaya Durga",
+  restaurantName: "Sri Vijaya Durga Restaurant",
   restaurantTagline: "Family AC Restaurant",
   restaurantDescription: "Sri Vijaya Durga Family AC Restaurant serves delicious, authentic Indian cuisine in a warm, welcoming family environment.",
   ownerName: "Sri Vijaya Durga Team",
   establishedYear: "2018",
-  restaurantLogo: "",
-  favicon: "",
+  restaurantLogo: "/logo17.jpg",
+  favicon: "/logo17.jpg",
 
   heroTitle: "Experience Authentic Flavors",
   heroSubtitle: "Welcome to Sri Vijaya Durga",
@@ -410,11 +473,23 @@ const DEFAULT_CMS_SETTINGS = {
     { id: 4, url: "/gallery_3.jpg", caption: "Cashier Terminal desk and POS billing portal counter" },
     { id: 5, url: "/gallery_4.jpg", caption: "Comfortable family dining cabins and beverage chilling station" }
   ]),
+  galleryAutoSlide: true,
+  gallerySlideInterval: 3,
 
   menuCardTitle: "Our Signature Menu",
   menuCardDescription: "Explore our rich variety of authentic dishes compiled in our physical menu card.",
   menuCardCoverImage: "https://images.unsplash.com/photo-1537047902294-62a40c20a6ae?auto=format&fit=crop&q=80&w=800",
   menuPdfUrl: "",
+  menuCardPages: JSON.stringify([
+    { id: 1, url: "/menu_card_page_1.png" },
+    { id: 2, url: "/menu_card_page_2.png" },
+    { id: 3, url: "/menu_card_page_3.png" },
+    { id: 4, url: "/menu_card_page_4.png" },
+    { id: 5, url: "/menu_card_page_5.png" },
+    { id: 6, url: "/menu_card_page_6.png" },
+    { id: 7, url: "/menu_card_page_7.png" },
+    { id: 8, url: "/menu_card_page_8.png" }
+  ]),
 
   footerDescription: "Serving happiness and authentic family hospitality since 2018.",
   footerCopyright: "© 2026 Sri Vijaya Durga Restaurant. All Rights Reserved.",
@@ -463,7 +538,11 @@ async function getMergedCmsSettings() {
       return { ...DEFAULT_CMS_SETTINGS, ...dbContent };
     }
   } catch (err) {
-    console.error('Error fetching CMS settings, returning fallback:', err);
+    console.error('Error fetching CMS settings from DB, falling back to local JSON file:', err.message);
+    const localSettings = readJsonFile(cmsSettingsFilePath, null);
+    if (localSettings) {
+      return { ...DEFAULT_CMS_SETTINGS, ...localSettings };
+    }
   }
   return DEFAULT_CMS_SETTINGS;
 }
@@ -504,17 +583,34 @@ app.post('/api/cms', async (req, res) => {
     const current = await getMergedCmsSettings();
     const updated = { ...current, ...settings };
 
-    const newVersion = await prisma.cmsVersion.create({
-      data: {
+    let versionId;
+    try {
+      const newVersion = await prisma.cmsVersion.create({
+        data: {
+          content: JSON.stringify(updated),
+          author: author || 'admin@srivijayadurga.com'
+        }
+      });
+      versionId = newVersion.id;
+    } catch (dbErr) {
+      console.warn('[DB Warning] Failed to write CMS settings to DB, writing to local files:', dbErr.message);
+      writeJsonFile(cmsSettingsFilePath, updated);
+
+      const localVersions = readJsonFile(cmsVersionsFilePath, []);
+      versionId = localVersions.length > 0 ? Math.max(...localVersions.map(v => v.id)) + 1 : 1;
+      localVersions.unshift({
+        id: versionId,
+        author: author || 'admin@srivijayadurga.com',
         content: JSON.stringify(updated),
-        author: author || 'admin@srivijayadurga.com'
-      }
-    });
+        createdAt: new Date().toISOString()
+      });
+      writeJsonFile(cmsVersionsFilePath, localVersions);
+    }
 
     // Realtime update socket broadcast
     io.emit('cms-updated', updated);
 
-    res.json({ success: true, versionId: newVersion.id, settings: updated });
+    res.json({ success: true, versionId, settings: updated });
   } catch (err) {
     console.error('Failed to update CMS settings:', err);
     res.status(500).json({ error: 'Internal server error' });
@@ -524,7 +620,6 @@ app.post('/api/cms', async (req, res) => {
 // GET CMS version history list
 app.get('/api/cms/versions', async (req, res) => {
   try {
-    // Return only metadata to keep responses light
     const versions = await prisma.cmsVersion.findMany({
       select: {
         id: true,
@@ -535,8 +630,14 @@ app.get('/api/cms/versions', async (req, res) => {
     });
     res.json({ success: true, versions });
   } catch (err) {
-    console.error('Failed to fetch CMS versions:', err);
-    res.status(500).json({ error: 'Internal server error' });
+    console.warn('[DB Warning] Failed to fetch CMS versions from DB, returning local versions history:', err.message);
+    const localVersions = readJsonFile(cmsVersionsFilePath, []);
+    const metadata = localVersions.map(v => ({
+      id: v.id,
+      author: v.author,
+      createdAt: v.createdAt
+    }));
+    res.json({ success: true, versions: metadata });
   }
 });
 
@@ -544,30 +645,53 @@ app.get('/api/cms/versions', async (req, res) => {
 app.post('/api/cms/versions/:id/restore', async (req, res) => {
   try {
     const versionId = parseInt(req.params.id);
-    const targetVersion = await prisma.cmsVersion.findUnique({
-      where: { id: versionId }
-    });
-
-    if (!targetVersion) {
-      return res.status(404).json({ error: 'Version not found' });
-    }
-
     const { author } = req.body;
+    let restoredSettings;
+    let newVersionId;
 
-    // Create a new version cloning the restored content
-    const newVersion = await prisma.cmsVersion.create({
-      data: {
-        content: targetVersion.content,
-        author: author || `Restored version #${versionId}`
+    try {
+      const targetVersion = await prisma.cmsVersion.findUnique({
+        where: { id: versionId }
+      });
+
+      if (!targetVersion) {
+        return res.status(404).json({ error: 'Version not found' });
       }
-    });
 
-    const restoredSettings = JSON.parse(targetVersion.content);
+      const newVersion = await prisma.cmsVersion.create({
+        data: {
+          content: targetVersion.content,
+          author: author || `Restored version #${versionId}`
+        }
+      });
+      newVersionId = newVersion.id;
+      restoredSettings = JSON.parse(targetVersion.content);
+    } catch (dbErr) {
+      console.warn('[DB Warning] Failed to restore CMS version via DB, falling back to local files:', dbErr.message);
+      const localVersions = readJsonFile(cmsVersionsFilePath, []);
+      const targetVersion = localVersions.find(v => v.id === versionId);
+
+      if (!targetVersion) {
+        return res.status(404).json({ error: 'Version not found in local history' });
+      }
+
+      restoredSettings = JSON.parse(targetVersion.content);
+      writeJsonFile(cmsSettingsFilePath, restoredSettings);
+
+      newVersionId = localVersions.length > 0 ? Math.max(...localVersions.map(v => v.id)) + 1 : 1;
+      localVersions.unshift({
+        id: newVersionId,
+        author: author || `Restored version #${versionId}`,
+        content: targetVersion.content,
+        createdAt: new Date().toISOString()
+      });
+      writeJsonFile(cmsVersionsFilePath, localVersions);
+    }
 
     // Broadcast update
     io.emit('cms-updated', restoredSettings);
 
-    res.json({ success: true, versionId: newVersion.id, settings: restoredSettings });
+    res.json({ success: true, versionId: newVersionId, settings: restoredSettings });
   } catch (err) {
     console.error('Failed to restore CMS version:', err);
     res.status(500).json({ error: 'Internal server error' });
@@ -624,6 +748,58 @@ app.delete('/api/cms/files/:filename', async (req, res) => {
     console.error('Failed to delete file:', err);
     res.status(500).json({ error: 'Internal server error' });
   }
+});
+
+// --- MENU PERSISTENCE ENDPOINTS ---
+const menuItemsFilePath = path.join(__dirname, 'menu_items.json');
+const parcelItemsFilePath = path.join(__dirname, 'parcel_items.json');
+
+// Helper to read JSON file safely
+function readJsonFile(filePath, defaultValue) {
+  try {
+    if (fs.existsSync(filePath)) {
+      const content = fs.readFileSync(filePath, 'utf8');
+      return JSON.parse(content);
+    }
+  } catch (err) {
+    console.error(`Error reading file ${filePath}:`, err);
+  }
+  return defaultValue;
+}
+
+// Helper to write JSON file safely
+function writeJsonFile(filePath, data) {
+  try {
+    fs.writeFileSync(filePath, JSON.stringify(data, null, 2), 'utf8');
+    return true;
+  } catch (err) {
+    console.error(`Error writing file ${filePath}:`, err);
+    return false;
+  }
+}
+
+// GET Menu Items
+app.get('/api/menu', (req, res) => {
+  const dineIn = readJsonFile(menuItemsFilePath, []);
+  const takeaway = readJsonFile(parcelItemsFilePath, []);
+  res.json({ success: true, dineIn, takeaway });
+});
+
+// POST Save Menu Items and Broadcast update
+app.post('/api/menu', (req, res) => {
+  const { dineIn, takeaway } = req.body;
+  
+  if (dineIn) {
+    writeJsonFile(menuItemsFilePath, dineIn);
+  }
+  if (takeaway) {
+    writeJsonFile(parcelItemsFilePath, takeaway);
+  }
+
+  // Broadcast update to all connected socket clients
+  io.emit('menu-updated', { dineIn, takeaway });
+
+  res.json({ success: true, message: 'Menu synced successfully' });
 });
 
 // --- SERVE STATIC FRONTEND FOR UNIFIED RENDER DEPLOYMENT ---

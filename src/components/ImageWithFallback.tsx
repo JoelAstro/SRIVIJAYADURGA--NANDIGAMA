@@ -11,7 +11,7 @@ const ImageWithFallback: React.FC<ImageWithFallbackProps> = ({
   fallbackSrc = '/special_dum_biryani.png', // high quality local fallback
   ...props
 }) => {
-  const [imgSrc, setImgSrc] = useState<string>('');
+  const [imgSrc, setImgSrc] = useState<string>(src || fallbackSrc || '');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
 

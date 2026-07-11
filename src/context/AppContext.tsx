@@ -130,11 +130,14 @@ export interface CmsSettings {
   googleMapsCardImage: string;
 
   galleryImages: string; // JSON string
+  galleryAutoSlide: boolean;
+  gallerySlideInterval: number;
 
   menuCardTitle: string;
   menuCardDescription: string;
   menuCardCoverImage: string;
   menuPdfUrl: string;
+  menuCardPages: string; // JSON string
 
   footerDescription: string;
   footerCopyright: string;
@@ -227,6 +230,7 @@ interface AppContextType {
   cmsVersions: any[];
   fetchCmsVersions: () => Promise<void>;
   restoreCmsVersion: (versionId: number) => Promise<boolean>;
+  API_URL: string;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -265,13 +269,13 @@ const DEFAULT_TABLES: Table[] = [
 ];
 
 const DEFAULT_CMS_SETTINGS: CmsSettings = {
-  restaurantName: "Sri Vijaya Durga",
+  restaurantName: "Sri Vijaya Durga Restaurant",
   restaurantTagline: "Family AC Restaurant",
   restaurantDescription: "Sri Vijaya Durga Family AC Restaurant serves delicious, authentic Indian cuisine in a warm, welcoming family environment.",
   ownerName: "Sri Vijaya Durga Team",
   establishedYear: "2018",
-  restaurantLogo: "",
-  favicon: "",
+  restaurantLogo: "/logo17.jpg",
+  favicon: "/logo17.jpg",
 
   heroTitle: "Experience Authentic Flavors",
   heroSubtitle: "Welcome to Sri Vijaya Durga",
@@ -305,11 +309,23 @@ const DEFAULT_CMS_SETTINGS: CmsSettings = {
     { id: 4, url: "/gallery_3.jpg", caption: "Cashier Terminal desk and POS billing portal counter" },
     { id: 5, url: "/gallery_4.jpg", caption: "Comfortable family dining cabins and beverage chilling station" }
   ]),
+  galleryAutoSlide: true,
+  gallerySlideInterval: 3,
 
   menuCardTitle: "Our Signature Menu",
   menuCardDescription: "Explore our rich variety of authentic dishes compiled in our physical menu card.",
   menuCardCoverImage: "https://images.unsplash.com/photo-1537047902294-62a40c20a6ae?auto=format&fit=crop&q=80&w=800",
   menuPdfUrl: "",
+  menuCardPages: JSON.stringify([
+    { id: 1, url: "/menu_card_page_1.png" },
+    { id: 2, url: "/menu_card_page_2.png" },
+    { id: 3, url: "/menu_card_page_3.png" },
+    { id: 4, url: "/menu_card_page_4.png" },
+    { id: 5, url: "/menu_card_page_5.png" },
+    { id: 6, url: "/menu_card_page_6.png" },
+    { id: 7, url: "/menu_card_page_7.png" },
+    { id: 8, url: "/menu_card_page_8.png" }
+  ]),
 
   footerDescription: "Serving happiness and authentic family hospitality since 2018.",
   footerCopyright: "© 2026 Sri Vijaya Durga Restaurant. All Rights Reserved.",
@@ -346,6 +362,9 @@ const DEFAULT_CMS_SETTINGS: CmsSettings = {
 };
 
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const isDev = import.meta.env.DEV;
+  const API_URL = isDev ? `http://${window.location.hostname}:3002` : '';
+
   // --- STATE ---
   const [tables, setTables] = useState<Table[]>(() => {
     const stored = localStorage.getItem('svd_tables');
@@ -513,7 +532,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   // Fetch settings and versions on startup
   useEffect(() => {
-    fetch('/api/cms')
+    fetch(`${API_URL}/api/cms`)
       .then(res => res.json())
       .then(data => {
         if (data.success && data.settings) {
@@ -574,7 +593,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   // Update CMS
   const updateCmsSettings = async (settingsToUpdate: Partial<CmsSettings>): Promise<boolean> => {
     try {
-      const response = await fetch('/api/cms', {
+      const response = await fetch(`${API_URL}/api/cms`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -600,7 +619,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   // Fetch CMS versions history
   const fetchCmsVersions = async () => {
     try {
-      const res = await fetch('/api/cms/versions');
+      const res = await fetch(`${API_URL}/api/cms/versions`);
       const data = await res.json();
       if (data.success) {
         setCmsVersions(data.versions);
@@ -613,7 +632,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   // Restore CMS version
   const restoreCmsVersion = async (versionId: number): Promise<boolean> => {
     try {
-      const response = await fetch(`/api/cms/versions/${versionId}/restore`, {
+      const response = await fetch(`${API_URL}/api/cms/versions/${versionId}/restore`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -637,7 +656,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const socketRef = React.useRef<any>(null);
 
   useEffect(() => {
-    socketRef.current = io(isDev ? `http://${window.location.hostname}:3000` : undefined, { 
+    socketRef.current = io(isDev ? `http://${window.location.hostname}:3002` : undefined, { 
       transports: ['websocket'],
       reconnection: true,
       reconnectionAttempts: Infinity
@@ -680,6 +699,18 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       });
     });
 
+    socketRef.current.on('menu-updated', (data: { dineIn: any[], takeaway: any[] }) => {
+      console.log('[Realtime Events] Received menu-updated:', data);
+      if (data.dineIn) {
+        setMenuItems(data.dineIn);
+        localStorage.setItem('svd_menu_items', JSON.stringify(data.dineIn));
+      }
+      if (data.takeaway) {
+        setParcelItems(data.takeaway);
+        localStorage.setItem('svd_parcel_items', JSON.stringify(data.takeaway));
+      }
+    });
+
     return () => {
       socketRef.current.disconnect();
     };
@@ -688,6 +719,33 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   useEffect(() => {
     tablesRef.current = tables;
   }, [tables]);
+
+  // Load menu items from server on startup
+  useEffect(() => {
+    fetch(`${API_URL}/api/menu`)
+      .then(res => res.json())
+      .then(data => {
+        if (data.success && data.dineIn && data.takeaway) {
+          if (data.dineIn.length > 0) {
+            setMenuItems(data.dineIn);
+            localStorage.setItem('svd_menu_items', JSON.stringify(data.dineIn));
+          } else {
+            // Server is empty, initialize it with current client-side defaults
+            fetch(`${API_URL}/api/menu`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ dineIn: menuItems, takeaway: parcelItems })
+            }).catch(err => console.error('Failed to initialize server menu:', err));
+          }
+
+          if (data.takeaway.length > 0) {
+            setParcelItems(data.takeaway);
+            localStorage.setItem('svd_parcel_items', JSON.stringify(data.takeaway));
+          }
+        }
+      })
+      .catch(err => console.error('Failed to load menu items from backend:', err));
+  }, []);
 
   useEffect(() => {
     ordersRef.current = orders;
@@ -1068,9 +1126,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const syncChannel = React.useMemo(() => new BroadcastChannel('svd_restaurant_sync'), []);
 
-  // Determine API URL based on environment (Vite dev port vs unified production)
-  const isDev = window.location.port === '5173' || window.location.port === '5174';
-  const API_URL = isDev ? `http://${window.location.hostname}:3000` : '';
+
 
 
   const triggerSync = () => {
@@ -1240,12 +1296,22 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     localStorage.setItem('svd_menu_items', JSON.stringify(newMenu));
     setMenuItems(newMenu);
     triggerSync();
+    fetch(`${API_URL}/api/menu`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ dineIn: newMenu, takeaway: parcelItems })
+    }).catch(err => console.error('Failed to sync menu with server:', err));
   };
 
   const updateParcelMenu = (newMenu: any[]) => {
     localStorage.setItem('svd_parcel_items', JSON.stringify(newMenu));
     setParcelItems(newMenu);
     triggerSync();
+    fetch(`${API_URL}/api/menu`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ dineIn: menuItems, takeaway: newMenu })
+    }).catch(err => console.error('Failed to sync parcel menu with server:', err));
   };
 
   // --- CART ACTIONS ---
@@ -1666,7 +1732,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       updateCmsSettings,
       cmsVersions,
       fetchCmsVersions,
-      restoreCmsVersion
+      restoreCmsVersion,
+      API_URL
     }}>
       {children}
     </AppContext.Provider>
