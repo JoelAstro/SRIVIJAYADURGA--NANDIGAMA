@@ -7,7 +7,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 const MenuSection: React.FC = () => {
   const { 
     activeTable, cart, addToCart, updateCartQty, 
-    placeOrder, activeOrder, updateOrderStatus, menuItems, setBgImage 
+    placeOrder, activeOrder, updateOrderStatus, menuItems, parcelItems, setBgImage 
   } = useApp();
 
   const [search, setSearch] = useState('');
@@ -36,9 +36,23 @@ const MenuSection: React.FC = () => {
   const [notes, setNotes] = useState('');
 
   const categories = [
-    'All', 'Veg Biryani', 'Non-Veg Biryani', 'Veg Fried Rice', 'Non-Veg Fried Rice',
-    'Veg Starters', 'Non-Veg Starters', 'Sea Food Starters', 'Egg Items',
-    'Tandoori Non-Veg', 'Tandoori Veg'
+    'All',
+    'Veg Biryani',
+    'Non-Veg Biryani',
+    'Veg Fried Rice',
+    'Non-Veg Fried Rice',
+    'Veg Starters',
+    'Non-Veg Starters',
+    'Sea Food Starters',
+    'Egg Items',
+    'Tandoori Veg',
+    'Tandoori Non-Veg',
+    'Special Biryani',
+    'Veg Curries',
+    'Non-Veg Curries',
+    'Roti Basket',
+    'Soups Veg',
+    'Soups Non-Veg'
   ];
 
   // Pre-populate customer details if dining session is already active
@@ -49,10 +63,35 @@ const MenuSection: React.FC = () => {
     }
   }, [activeOrder]);
 
+  // Merge and normalize all items from Dine-In and Takeaway
+  const allMergedItems = [
+    ...menuItems,
+    ...parcelItems.map(item => {
+      if (item.category === 'Couple Pack') {
+        return { ...item, category: 'Couple Pack Biryani' };
+      }
+      if (item.category === 'Family Pack') {
+        return { ...item, category: 'Family Pack Biryani' };
+      }
+      return item;
+    })
+  ];
+
+  // Exclude Parcel & Takeaway ONLY categories from Dine-In menu
+  const dineInItems = allMergedItems.filter(item => {
+    return (
+      item.category !== 'Couple Pack Biryani' &&
+      item.category !== 'Family Pack Biryani' &&
+      item.category !== 'Bucket Biryani' &&
+      item.category !== 'Couple Pack' &&
+      item.category !== 'Family Pack'
+    );
+  });
+
   // Filter menu dynamically based on search and category selection
-  const filteredMenu = menuItems.filter(item => {
+  const filteredMenu = dineInItems.filter(item => {
     const matchesSearch = item.name.toLowerCase().includes(search.toLowerCase()) || 
-                          item.description.toLowerCase().includes(search.toLowerCase());
+                          (item.description || '').toLowerCase().includes(search.toLowerCase());
     const matchesCat = selectedCategory === 'All' || item.category === selectedCategory;
     return matchesSearch && matchesCat;
   });
