@@ -103,3 +103,14 @@ model UploadedFile {
   createdAt DateTime @default(now())
 }
 
+model Review {
+  id        String   @id
+  name      String
+  location  String?
+  rating    Int
+  message   String
+  status    String   @default("PENDING") // PENDING, APPROVED, REJECTED
+  timestamp Float
+}
+
+

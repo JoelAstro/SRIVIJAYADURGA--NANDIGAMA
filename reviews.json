@@ -1,0 +1,20 @@
+[
+  {
+    "id": "REV-RQ6TF5A2B",
+    "name": "Joke",
+    "location": "bhf",
+    "rating": 5,
+    "message": "jjnkjsdn",
+    "status": "REJECTED",
+    "timestamp": 1783876600086
+  },
+  {
+    "id": "REV-AXE7H5J6N",
+    "name": "Sayyad Shama Ruksar",
+    "location": "Bhimavaram",
+    "rating": 5,
+    "message": "Excellent atmosphere and Tasty Delicious food Enjoyed a lot",
+    "status": "APPROVED",
+    "timestamp": 1783875854036
+  }
+]

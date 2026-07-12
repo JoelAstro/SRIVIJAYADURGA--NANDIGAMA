@@ -960,6 +960,219 @@ app.post('/api/menu', async (req, res) => {
   res.json({ success: true, message: 'Menu synced successfully' });
 });
 
+// --- TESTIMONIALS / REVIEWS ENDPOINTS ---
+const reviewsFilePath = path.join(__dirname, 'reviews.json');
+
+// GET all testimonials (with database & local fallback)
+app.get('/api/reviews', async (req, res) => {
+  try {
+    const dbReviews = await prisma.review.findMany({
+      orderBy: { timestamp: 'desc' }
+    });
+    if (dbReviews && dbReviews.length > 0) {
+      return res.json({ success: true, reviews: dbReviews });
+    }
+
+    // Seed defaults if empty
+    console.log('[DB] Review table is empty, seeding defaults...');
+    const local = readJsonFile(reviewsFilePath, []);
+    let seeded = local;
+    if (local.length === 0) {
+      // Default website testimonials
+      seeded = [
+        {
+          id: 'REV-1',
+          name: 'Rajesh Kumar',
+          location: 'Nandigama',
+          rating: 5,
+          message: 'Excellent food with authentic taste and fresh ingredients. The service was quick, and the staff were very welcoming. A great place to enjoy a family meal.',
+          status: 'APPROVED',
+          timestamp: Date.now() - 1 * 24 * 60 * 60 * 1000
+        },
+        {
+          id: 'REV-2',
+          name: 'Suresh Babu',
+          location: 'Kanchikacherla',
+          rating: 5,
+          message: 'One of the best restaurants in the area. The biryani was flavorful, the portions were generous, and the prices were very reasonable. Highly recommended.',
+          status: 'APPROVED',
+          timestamp: Date.now() - 2 * 24 * 60 * 60 * 1000
+        },
+        {
+          id: 'REV-3',
+          name: 'Anjali Devi',
+          location: 'Jaggayyapeta',
+          rating: 5,
+          message: "I've visited multiple times, and the quality has always been consistent. Clean environment, polite staff, and delicious food make this my go-to restaurant.",
+          status: 'APPROVED',
+          timestamp: Date.now() - 3 * 24 * 60 * 60 * 1000
+        },
+        {
+          id: 'REV-4',
+          name: 'Venkatesh',
+          location: 'Vijayawada',
+          rating: 4,
+          message: 'Very good dining experience. The starters were amazing, and the main course was served hot and fresh. The ambience is comfortable and family-friendly.',
+          status: 'APPROVED',
+          timestamp: Date.now() - 4 * 24 * 60 * 60 * 1000
+        },
+        {
+          id: 'REV-5',
+          name: 'Koteswara Rao',
+          location: 'Hyderabad',
+          rating: 5,
+          message: 'Great value for money! The food tasted homemade, the service was prompt, and the restaurant was well maintained. Will definitely visit again.',
+          status: 'APPROVED',
+          timestamp: Date.now() - 5 * 24 * 60 * 60 * 1000
+        },
+        {
+          id: 'REV-6',
+          name: 'Sita Ram',
+          location: 'Nandigama',
+          rating: 5,
+          message: 'A wonderful place for lunch and dinner. Every dish we ordered was tasty, and the staff ensured we had a pleasant experience throughout our visit.',
+          status: 'APPROVED',
+          timestamp: Date.now() - 6 * 24 * 60 * 60 * 1000
+        }
+      ];
+    }
+
+    await prisma.review.createMany({
+      data: seeded
+    });
+    res.json({ success: true, reviews: seeded });
+  } catch (err) {
+    console.error('Error fetching reviews from DB, falling back to local JSON file:', err.message);
+    const local = readJsonFile(reviewsFilePath, []);
+    res.json({ success: true, reviews: local });
+  }
+});
+
+// POST new testimonial (Default status is PENDING as requested)
+app.post('/api/reviews', async (req, res) => {
+  try {
+    const { id, name, rating, message, location, status, timestamp } = req.body;
+    if (!name || !rating || !message) {
+      return res.status(400).json({ error: 'Missing required parameters' });
+    }
+
+    const newReview = {
+      id: id || ('REV-' + Math.random().toString(36).substr(2, 9).toUpperCase()),
+      name,
+      location: location || "",
+      rating: parseInt(rating),
+      message,
+      status: status || 'PENDING',
+      timestamp: timestamp ? parseFloat(timestamp) : Date.now()
+    };
+
+    // Save to Database
+    try {
+      await prisma.review.create({
+        data: newReview
+      });
+      console.log(`[DB] Created testimonial: ${newReview.id}`);
+    } catch (dbErr) {
+      console.warn('[DB Warning] Failed to write review to DB, fallback to local JSON:', dbErr.message);
+    }
+
+    // Save/Update local JSON file
+    const local = readJsonFile(reviewsFilePath, []);
+    // Prevent duplicate entries in local JSON cache too!
+    if (!local.find(r => r.id === newReview.id)) {
+      local.unshift(newReview);
+      writeJsonFile(reviewsFilePath, local);
+    }
+
+    // Broadcast to connected clients
+    io.emit('new-review', newReview);
+
+    res.json({ success: true, review: newReview });
+  } catch (err) {
+    console.error('Failed to create review:', err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// PUT update review (e.g. approve/reject, edit name/message)
+app.put('/api/reviews/:id', async (req, res) => {
+  try {
+    const id = req.params.id;
+    const { name, rating, message, status, location } = req.body;
+
+    // Update Database
+    try {
+      await prisma.review.update({
+        where: { id },
+        data: {
+          name,
+          rating: rating ? parseInt(rating) : undefined,
+          message,
+          status,
+          location
+        }
+      });
+      console.log(`[DB] Updated review status: ${id} -> ${status}`);
+    } catch (dbErr) {
+      console.warn('[DB Warning] Failed to update review in DB, fallback to local JSON:', dbErr.message);
+    }
+
+    // Update local JSON file
+    const local = readJsonFile(reviewsFilePath, []);
+    const idx = local.findIndex(r => r.id === id);
+    if (idx !== -1) {
+      local[idx] = { 
+        ...local[idx], 
+        name: name !== undefined ? name : local[idx].name, 
+        rating: rating !== undefined ? parseInt(rating) : local[idx].rating, 
+        message: message !== undefined ? message : local[idx].message, 
+        status: status !== undefined ? status : local[idx].status,
+        location: location !== undefined ? location : local[idx].location
+      };
+      writeJsonFile(reviewsFilePath, local);
+    }
+
+    // Broadcast updated review to all clients
+    const updatedReview = local.find(r => r.id === id) || { id, name, rating, message, status, location };
+    io.emit('review-updated', updatedReview);
+
+    res.json({ success: true, review: updatedReview });
+  } catch (err) {
+    console.error('Failed to update review:', err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// DELETE review
+app.delete('/api/reviews/:id', async (req, res) => {
+  try {
+    const id = req.params.id;
+
+    // Delete from Database
+    try {
+      await prisma.review.delete({
+        where: { id }
+      });
+      console.log(`[DB] Deleted review: ${id}`);
+    } catch (dbErr) {
+      console.warn('[DB Warning] Failed to delete review from DB, fallback to local JSON:', dbErr.message);
+    }
+
+    // Update local JSON file
+    const local = readJsonFile(reviewsFilePath, []);
+    const updated = local.filter(r => r.id !== id);
+    writeJsonFile(reviewsFilePath, updated);
+
+    // Broadcast delete event
+    io.emit('review-deleted', id);
+
+    res.json({ success: true, message: 'Review deleted successfully' });
+  } catch (err) {
+    console.error('Failed to delete review:', err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
 // --- SERVE STATIC FRONTEND FOR UNIFIED RENDER DEPLOYMENT ---
 app.use(express.static(path.join(__dirname, 'dist')));
 

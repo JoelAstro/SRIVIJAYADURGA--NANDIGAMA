@@ -53,7 +53,8 @@ const AdminDashboard: React.FC = () => {
   const [ratingsSubTab, setRatingsSubTab] = useState<'checkout' | 'website'>('checkout');
   const [editingReview, setEditingReview] = useState<any>(null);
   const [showAddReviewForm, setShowAddReviewForm] = useState(false);
-  const [reviewForm, setReviewForm] = useState({ name: '', rating: 5, message: '', status: 'APPROVED' as const });
+  const [isCreatingReview, setIsCreatingReview] = useState(false);
+  const [reviewForm, setReviewForm] = useState({ name: '', rating: 5, message: '', status: 'APPROVED' as const, location: '' });
   const [reviewFilter, setReviewFilter] = useState<'ALL' | 'PENDING' | 'APPROVED' | 'REJECTED'>('ALL');
 
   // Sync CMS forms locally
@@ -1157,20 +1158,20 @@ const AdminDashboard: React.FC = () => {
           <div className="flex gap-2 border-b border-neutral-200 dark:border-neutral-800 pb-3">
             <button
               onClick={() => setRatingsSubTab('checkout')}
-              className={`px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+              className={`px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer border ${
                 ratingsSubTab === 'checkout'
-                  ? 'bg-maroon text-white dark:bg-saffron dark:text-maroon shadow-md'
-                  : 'bg-neutral-100 hover:bg-neutral-200 dark:bg-neutral-850 dark:hover:bg-neutral-800 text-neutral-600 dark:text-neutral-300'
+                  ? 'bg-maroon text-white border-maroon dark:bg-saffron dark:text-maroon dark:border-saffron shadow-md'
+                  : 'bg-white dark:bg-neutral-800 text-neutral-600 dark:text-neutral-300 border-neutral-200 dark:border-neutral-700 hover:border-maroon/30 dark:hover:border-saffron/30 hover:bg-neutral-50 dark:hover:bg-neutral-750'
               }`}
             >
               ⭐ Checkout Feedback
             </button>
             <button
               onClick={() => setRatingsSubTab('website')}
-              className={`px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+              className={`px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer border ${
                 ratingsSubTab === 'website'
-                  ? 'bg-maroon text-white dark:bg-saffron dark:text-maroon shadow-md'
-                  : 'bg-neutral-100 hover:bg-neutral-200 dark:bg-neutral-850 dark:hover:bg-neutral-800 text-neutral-600 dark:text-neutral-300'
+                  ? 'bg-maroon text-white border-maroon dark:bg-saffron dark:text-maroon dark:border-saffron shadow-md'
+                  : 'bg-white dark:bg-neutral-800 text-neutral-600 dark:text-neutral-300 border-neutral-200 dark:border-neutral-700 hover:border-maroon/30 dark:hover:border-saffron/30 hover:bg-neutral-50 dark:hover:bg-neutral-750'
               }`}
             >
               🌐 Website Testimonials
@@ -1277,7 +1278,7 @@ const AdminDashboard: React.FC = () => {
                 {/* Add review manually */}
                 <button
                   onClick={() => {
-                    setReviewForm({ name: '', rating: 5, message: '', status: 'APPROVED' });
+                    setReviewForm({ name: '', rating: 5, message: '', status: 'APPROVED', location: '' });
                     setShowAddReviewForm(true);
                   }}
                   className="flex items-center gap-1.5 px-4 py-2 bg-maroon text-white dark:bg-saffron dark:text-maroon font-bold text-xs rounded-xl shadow-md transition-all hover:opacity-90 cursor-pointer border-none"
@@ -1303,6 +1304,11 @@ const AdminDashboard: React.FC = () => {
                             <div className="flex items-start justify-between gap-2">
                               <div>
                                 <h5 className="font-logo font-bold text-sm text-neutral-700 dark:text-neutral-200">{r.name}</h5>
+                                {r.location && (
+                                  <span className="text-[10px] font-bold text-maroon dark:text-saffron block mt-0.5">
+                                    📍 {r.location}
+                                  </span>
+                                )}
                                 <span className="text-[9px] text-neutral-400 block mt-0.5">Submitted on {new Date(r.timestamp).toLocaleDateString()}</span>
                               </div>
                               <div className="flex flex-col items-end gap-1.5">
@@ -1325,7 +1331,7 @@ const AdminDashboard: React.FC = () => {
                                       ? 'bg-yellow-500/10 text-yellow-500 border border-yellow-500/20'
                                       : 'bg-red-500/10 text-red-500 border border-red-500/20'
                                 }`}>
-                                  {r.status === 'APPROVED' ? 'Approved & Live' : r.status === 'PENDING' ? 'Pending Approval' : 'Rejected'}
+                                  {r.status === 'APPROVED' ? 'Approved' : r.status === 'PENDING' ? 'Pending' : 'Rejected'}
                                 </span>
                               </div>
                             </div>
@@ -1341,15 +1347,15 @@ const AdminDashboard: React.FC = () => {
                             <div className="flex gap-1.5">
                               {r.status !== 'APPROVED' && (
                                 <button
-                                  onClick={() => updateReview(r.id, r.name, r.rating, r.message, 'APPROVED')}
+                                  onClick={() => updateReview(r.id, r.name, r.rating, r.message, 'APPROVED', r.location)}
                                   className="px-2.5 py-1 bg-green-500/10 hover:bg-green-500 text-green-500 hover:text-white border border-green-500/20 rounded-lg text-[10px] font-bold transition-all cursor-pointer"
                                 >
-                                  Approve
+                                  Approve / Set Live
                                 </button>
                               )}
                               {r.status !== 'REJECTED' && (
                                 <button
-                                  onClick={() => updateReview(r.id, r.name, r.rating, r.message, 'REJECTED')}
+                                  onClick={() => updateReview(r.id, r.name, r.rating, r.message, 'REJECTED', r.location)}
                                   className="px-2.5 py-1 bg-red-500/10 hover:bg-red-500 text-red-500 hover:text-white border border-red-500/20 rounded-lg text-[10px] font-bold transition-all cursor-pointer"
                                 >
                                   Reject
@@ -1359,7 +1365,7 @@ const AdminDashboard: React.FC = () => {
                             
                             <div className="flex gap-1.5">
                               <button
-                                onClick={() => setEditingReview(r)}
+                                  onClick={() => setEditingReview({ ...r, location: r.location || '' })}
                                 className="p-1.5 text-neutral-500 hover:text-maroon dark:hover:text-saffron bg-neutral-50 dark:bg-neutral-850 hover:bg-neutral-100 dark:hover:bg-neutral-800 rounded-lg border border-neutral-200/50 dark:border-neutral-800/50 transition-all cursor-pointer"
                                 title="Edit review content"
                               >
@@ -1398,6 +1404,17 @@ const AdminDashboard: React.FC = () => {
                       type="text"
                       value={editingReview.name}
                       onChange={(e) => setEditingReview({ ...editingReview, name: e.target.value })}
+                      className="w-full px-3.5 py-2 border border-neutral-200 dark:border-neutral-800 rounded-xl bg-neutral-50 dark:bg-neutral-850 text-xs focus:border-maroon outline-none text-neutral-700 dark:text-neutral-200"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-[10px] font-bold text-neutral-500 uppercase mb-1">Location</label>
+                    <input 
+                      type="text"
+                      value={editingReview.location || ''}
+                      onChange={(e) => setEditingReview({ ...editingReview, location: e.target.value })}
+                      placeholder="e.g. Nandigama"
                       className="w-full px-3.5 py-2 border border-neutral-200 dark:border-neutral-800 rounded-xl bg-neutral-50 dark:bg-neutral-850 text-xs focus:border-maroon outline-none text-neutral-700 dark:text-neutral-200"
                     />
                   </div>
@@ -1455,7 +1472,7 @@ const AdminDashboard: React.FC = () => {
                   </button>
                   <button 
                     onClick={() => {
-                      updateReview(editingReview.id, editingReview.name, editingReview.rating, editingReview.message, editingReview.status);
+                      updateReview(editingReview.id, editingReview.name, editingReview.rating, editingReview.message, editingReview.status, editingReview.location);
                       setEditingReview(null);
                     }}
                     className="px-4 py-2 bg-maroon text-white dark:bg-saffron dark:text-maroon rounded-xl text-xs font-bold shadow-md hover:opacity-90 cursor-pointer border-none"
@@ -1481,6 +1498,17 @@ const AdminDashboard: React.FC = () => {
                       placeholder="e.g. John Doe"
                       value={reviewForm.name}
                       onChange={(e) => setReviewForm({ ...reviewForm, name: e.target.value })}
+                      className="w-full px-3.5 py-2 border border-neutral-200 dark:border-neutral-800 rounded-xl bg-neutral-50 dark:bg-neutral-850 text-xs focus:border-maroon outline-none text-neutral-700 dark:text-neutral-200"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-[10px] font-bold text-neutral-500 uppercase mb-1">Location</label>
+                    <input 
+                      type="text"
+                      placeholder="e.g. Nandigama"
+                      value={reviewForm.location || ''}
+                      onChange={(e) => setReviewForm({ ...reviewForm, location: e.target.value })}
                       className="w-full px-3.5 py-2 border border-neutral-200 dark:border-neutral-800 rounded-xl bg-neutral-50 dark:bg-neutral-850 text-xs focus:border-maroon outline-none text-neutral-700 dark:text-neutral-200"
                     />
                   </div>
@@ -1535,22 +1563,32 @@ const AdminDashboard: React.FC = () => {
                   <button 
                     onClick={() => {
                       setShowAddReviewForm(false);
-                      setReviewForm({ name: '', rating: 5, message: '', status: 'APPROVED' });
+                      setReviewForm({ name: '', rating: 5, message: '', status: 'APPROVED', location: '' });
                     }}
                     className="px-4 py-2 border border-neutral-200 dark:border-neutral-800 rounded-xl text-xs font-bold text-neutral-500 hover:bg-neutral-50 dark:hover:bg-neutral-850 cursor-pointer"
                   >
                     Cancel
                   </button>
                   <button 
-                    onClick={() => {
-                      if (!reviewForm.name.trim() || !reviewForm.message.trim()) return;
-                      addReview(reviewForm.name.trim(), reviewForm.rating, reviewForm.message.trim(), reviewForm.status);
-                      setShowAddReviewForm(false);
-                      setReviewForm({ name: '', rating: 5, message: '', status: 'APPROVED' });
+                    disabled={isCreatingReview}
+                    onClick={async () => {
+                      if (!reviewForm.name.trim() || !reviewForm.message.trim() || isCreatingReview) return;
+                      setIsCreatingReview(true);
+                      try {
+                        await addReview(reviewForm.name.trim(), reviewForm.rating, reviewForm.message.trim(), reviewForm.status, reviewForm.location.trim());
+                        setShowAddReviewForm(false);
+                        setReviewForm({ name: '', rating: 5, message: '', status: 'APPROVED', location: '' });
+                      } catch (err) {
+                        console.error('Failed to manually add review:', err);
+                      } finally {
+                        setIsCreatingReview(false);
+                      }
                     }}
-                    className="px-4 py-2 bg-maroon text-white dark:bg-saffron dark:text-maroon rounded-xl text-xs font-bold shadow-md hover:opacity-90 cursor-pointer border-none"
+                    className={`px-4 py-2 bg-maroon text-white dark:bg-saffron dark:text-maroon rounded-xl text-xs font-bold shadow-md hover:opacity-90 cursor-pointer border-none transition-all ${
+                      isCreatingReview ? 'opacity-50 cursor-not-allowed' : ''
+                    }`}
                   >
-                    Add Testimonial
+                    {isCreatingReview ? 'Adding...' : 'Add Testimonial'}
                   </button>
                 </div>
               </div>

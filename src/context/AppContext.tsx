@@ -93,6 +93,7 @@ export interface Review {
   message: string;
   timestamp: number;
   status: 'PENDING' | 'APPROVED' | 'REJECTED';
+  location?: string;
 }
 
 export interface CmsSettings {
@@ -184,8 +185,8 @@ interface AppContextType {
   ratings: Rating[];
   reviews: Review[];
   menuItems: any[];
-  addReview: (name: string, rating: number, message: string, status?: 'PENDING' | 'APPROVED' | 'REJECTED') => void;
-  updateReview: (id: string, name: string, rating: number, message: string, status: 'PENDING' | 'APPROVED' | 'REJECTED') => void;
+  addReview: (name: string, rating: number, message: string, status?: 'PENDING' | 'APPROVED' | 'REJECTED', location?: string) => void;
+  updateReview: (id: string, name: string, rating: number, message: string, status: 'PENDING' | 'APPROVED' | 'REJECTED', location?: string) => void;
   deleteReview: (id: string) => void;
   setTheme: (theme: 'dark' | 'light') => void;
   reserveTable: (tableNo: string, customerName: string, customerPhone: string, slot?: string) => boolean;
@@ -711,6 +712,33 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       }
     });
 
+    socketRef.current.on('new-review', (newRev: Review) => {
+      setReviews(prev => {
+        if (!prev.find(r => r.id === newRev.id)) {
+          const updated = [newRev, ...prev];
+          localStorage.setItem('svd_reviews', JSON.stringify(updated));
+          return updated;
+        }
+        return prev;
+      });
+    });
+
+    socketRef.current.on('review-updated', (updatedRev: Review) => {
+      setReviews(prev => {
+        const updated = prev.map(r => r.id === updatedRev.id ? updatedRev : r);
+        localStorage.setItem('svd_reviews', JSON.stringify(updated));
+        return updated;
+      });
+    });
+
+    socketRef.current.on('review-deleted', (deletedId: string) => {
+      setReviews(prev => {
+        const updated = prev.filter(r => r.id !== deletedId);
+        localStorage.setItem('svd_reviews', JSON.stringify(updated));
+        return updated;
+      });
+    });
+
     return () => {
       socketRef.current.disconnect();
     };
@@ -745,6 +773,17 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         }
       })
       .catch(err => console.error('Failed to load menu items from backend:', err));
+
+    // Load reviews on startup
+    fetch(`${API_URL}/api/reviews`)
+      .then(res => res.json())
+      .then(data => {
+        if (data.success && data.reviews) {
+          setReviews(data.reviews);
+          localStorage.setItem('svd_reviews', JSON.stringify(data.reviews));
+        }
+      })
+      .catch(err => console.error('Failed to load reviews from server:', err));
   }, []);
 
   useEffect(() => {
@@ -1263,27 +1302,63 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     triggerSync();
   };
 
-  const addReview = (name: string, rating: number, message: string, status: 'PENDING' | 'APPROVED' | 'REJECTED' = 'PENDING') => {
+  const addReview = (name: string, rating: number, message: string, status: 'PENDING' | 'APPROVED' | 'REJECTED' = 'PENDING', location?: string) => {
     const newReview: Review = {
       id: 'REV-' + Math.random().toString(36).substr(2, 9).toUpperCase(),
       name,
       rating,
       message,
       timestamp: Date.now(),
-      status
+      status,
+      location: location || ""
     };
-    setReviews(prev => [newReview, ...prev]);
+    
+    // Update local state immediately
+    setReviews(prev => {
+      const updated = [newReview, ...prev];
+      localStorage.setItem('svd_reviews', JSON.stringify(updated));
+      return updated;
+    });
     triggerSync();
+
+    // Call backend API
+    fetch(`${API_URL}/api/reviews`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(newReview)
+    }).catch(err => console.error('Failed to create review on backend:', err));
   };
 
-  const updateReview = (id: string, name: string, rating: number, message: string, status: 'PENDING' | 'APPROVED' | 'REJECTED') => {
-    setReviews(prev => prev.map(r => r.id === id ? { ...r, name, rating, message, status } : r));
+  const updateReview = (id: string, name: string, rating: number, message: string, status: 'PENDING' | 'APPROVED' | 'REJECTED', location?: string) => {
+    // Update local state immediately
+    setReviews(prev => {
+      const updated = prev.map(r => r.id === id ? { ...r, name, rating, message, status, location } : r);
+      localStorage.setItem('svd_reviews', JSON.stringify(updated));
+      return updated;
+    });
     triggerSync();
+
+    // Call backend API
+    fetch(`${API_URL}/api/reviews/${id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name, rating, message, status, location })
+    }).catch(err => console.error('Failed to update review on backend:', err));
   };
 
   const deleteReview = (id: string) => {
-    setReviews(prev => prev.filter(r => r.id !== id));
+    // Update local state immediately
+    setReviews(prev => {
+      const updated = prev.filter(r => r.id !== id);
+      localStorage.setItem('svd_reviews', JSON.stringify(updated));
+      return updated;
+    });
     triggerSync();
+
+    // Call backend API
+    fetch(`${API_URL}/api/reviews/${id}`, {
+      method: 'DELETE'
+    }).catch(err => console.error('Failed to delete review on backend:', err));
   };
 
   const getAverageRating = () => {
