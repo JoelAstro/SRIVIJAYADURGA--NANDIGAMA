@@ -18,6 +18,7 @@ import pkg from '@prisma/client';
 const { PrismaClient } = pkg;
 import mongoose from 'mongoose';
 import { Notification, ActivityLog, KitchenHistory } from './models/mongo.js';
+import { cloudinary } from './config/cloudinary.js';
 
 dotenv.config();
 
@@ -765,24 +766,44 @@ app.post('/api/cms/upload', async (req, res) => {
       return res.status(400).json({ error: 'Unsupported file type. Please upload images or PDFs only.' });
     }
 
-    // Convert base64 payload to binary buffer
+    // Convert base64 payload to binary buffer for size check
     const buffer = Buffer.from(base64, 'base64');
-
-    // Size validation (Max 5MB)
     if (buffer.length > 5 * 1024 * 1024) {
       return res.status(400).json({ error: 'File size exceeds maximum limit of 5MB.' });
     }
 
-    // Safe sanitized filename
-    const sanitizedFilename = `${Date.now()}_${filename.replace(/[^a-zA-Z0-9.\-_]/g, '')}`;
-    const filePath = path.join(uploadsDir, sanitizedFilename);
+    const hasCloudinary = process.env.CLOUDINARY_CLOUD_NAME && 
+                          process.env.CLOUDINARY_API_KEY && 
+                          process.env.CLOUDINARY_API_SECRET;
 
-    await fs.promises.writeFile(filePath, buffer);
+    if (hasCloudinary) {
+      // Upload directly to Cloudinary using base64 data URL format
+      const base64DataUrl = `data:${type};base64,${base64}`;
+      const cleanFilename = filename.substring(0, filename.lastIndexOf('.')) || filename;
+      const publicId = `${Date.now()}_${cleanFilename.replace(/[^a-zA-Z0-9.\-_]/g, '')}`;
 
-    // Save to PostgreSQL database as persistent backup
-    await saveFileToDb(sanitizedFilename, type, base64);
+      console.log(`[Cloudinary] Uploading file to cloud: ${publicId}`);
+      const uploadResult = await cloudinary.uploader.upload(base64DataUrl, {
+        folder: 'restaurant_uploads',
+        public_id: publicId,
+        resource_type: 'auto'
+      });
 
-    res.json({ success: true, url: `/uploads/${sanitizedFilename}` });
+      console.log('[Cloudinary] Upload successful:', uploadResult.secure_url);
+      return res.json({ success: true, url: uploadResult.secure_url });
+    } else {
+      console.warn('[Cloudinary Warning] Environment variables not set. Falling back to local/DB persistence.');
+      // Safe sanitized filename
+      const sanitizedFilename = `${Date.now()}_${filename.replace(/[^a-zA-Z0-9.\-_]/g, '')}`;
+      const filePath = path.join(uploadsDir, sanitizedFilename);
+
+      await fs.promises.writeFile(filePath, buffer);
+
+      // Save to PostgreSQL database as persistent backup
+      await saveFileToDb(sanitizedFilename, type, base64);
+
+      return res.json({ success: true, url: `/uploads/${sanitizedFilename}` });
+    }
   } catch (err) {
     console.error('Failed to upload file:', err);
     res.status(500).json({ error: 'Failed to process file upload' });
