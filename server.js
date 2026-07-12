@@ -431,6 +431,44 @@ if (!fs.existsSync(uploadsDir)) {
   fs.mkdirSync(uploadsDir, { recursive: true });
 }
 
+// Function to save file to DB
+async function saveFileToDb(filename, type, base64) {
+  try {
+    await prisma.uploadedFile.upsert({
+      where: { filename },
+      update: { type, base64 },
+      create: { filename, type, base64 }
+    });
+    console.log(`[DB] File saved to database successfully: ${filename}`);
+    return true;
+  } catch (err) {
+    console.error(`[DB ERROR] Failed to save file ${filename} to database:`, err.message);
+    return false;
+  }
+}
+
+// Function to fetch file from DB and write to disk if missing
+async function getFileFromDb(filename) {
+  try {
+    const file = await prisma.uploadedFile.findUnique({
+      where: { filename }
+    });
+    if (file) {
+      const buffer = Buffer.from(file.base64, 'base64');
+      const filePath = path.join(uploadsDir, filename);
+      if (!fs.existsSync(uploadsDir)) {
+        fs.mkdirSync(uploadsDir, { recursive: true });
+      }
+      await fs.promises.writeFile(filePath, buffer);
+      console.log(`[DB] Restored file from database to local path: ${filename}`);
+      return file;
+    }
+  } catch (err) {
+    console.error(`[DB ERROR] Failed to fetch file ${filename} from database:`, err.message);
+  }
+  return null;
+}
+
 // Fallback configuration
 const DEFAULT_CMS_SETTINGS = {
   restaurantName: "Sri Vijaya Durga Restaurant",
@@ -525,6 +563,22 @@ const DEFAULT_CMS_SETTINGS = {
   seoOgImage: ""
 };
 
+// Custom endpoint to serve uploaded files with database fallback caching
+app.get('/uploads/:filename', async (req, res, next) => {
+  const filename = req.params.filename;
+  const filePath = path.join(uploadsDir, filename);
+
+  if (fs.existsSync(filePath)) {
+    return res.sendFile(filePath);
+  }
+
+  const file = await getFileFromDb(filename);
+  if (file) {
+    return res.sendFile(filePath);
+  }
+
+  next();
+});
 app.use('/uploads', express.static(uploadsDir));
 
 // Helper: Get merged settings
@@ -725,6 +779,9 @@ app.post('/api/cms/upload', async (req, res) => {
 
     await fs.promises.writeFile(filePath, buffer);
 
+    // Save to PostgreSQL database as persistent backup
+    await saveFileToDb(sanitizedFilename, type, base64);
+
     res.json({ success: true, url: `/uploads/${sanitizedFilename}` });
   } catch (err) {
     console.error('Failed to upload file:', err);
@@ -740,10 +797,19 @@ app.delete('/api/cms/files/:filename', async (req, res) => {
 
     if (fs.existsSync(filePath)) {
       await fs.promises.unlink(filePath);
-      res.json({ success: true, message: 'File deleted' });
-    } else {
-      res.status(404).json({ error: 'File not found' });
     }
+
+    // Delete from database
+    try {
+      await prisma.uploadedFile.delete({
+        where: { filename }
+      });
+      console.log(`[DB] Deleted file from database: ${filename}`);
+    } catch (dbErr) {
+      console.warn(`[DB WARNING] File ${filename} delete from database skipped or failed:`, dbErr.message);
+    }
+
+    res.json({ success: true, message: 'File deleted' });
   } catch (err) {
     console.error('Failed to delete file:', err);
     res.status(500).json({ error: 'Internal server error' });
@@ -779,16 +845,57 @@ function writeJsonFile(filePath, data) {
 }
 
 // GET Menu Items
-app.get('/api/menu', (req, res) => {
-  const dineIn = readJsonFile(menuItemsFilePath, []);
-  const takeaway = readJsonFile(parcelItemsFilePath, []);
-  res.json({ success: true, dineIn, takeaway });
+app.get('/api/menu', async (req, res) => {
+  try {
+    const dbItems = await prisma.menuItem.findMany();
+    if (dbItems && dbItems.length > 0) {
+      const dineIn = dbItems.filter(item => item.id < 200);
+      const takeaway = dbItems.filter(item => item.id >= 200);
+      return res.json({ success: true, dineIn, takeaway });
+    }
+
+    console.log('[DB] Menu table is empty, seeding from local JSON backups...');
+    const dineIn = readJsonFile(menuItemsFilePath, []);
+    const takeaway = readJsonFile(parcelItemsFilePath, []);
+
+    if (dineIn.length > 0 || takeaway.length > 0) {
+      await prisma.menuItem.createMany({
+        data: [
+          ...dineIn.map(i => ({
+            id: i.id,
+            name: i.name,
+            price: parseFloat(i.price),
+            category: i.category,
+            type: i.type,
+            image: i.image,
+            description: i.description || ""
+          })),
+          ...takeaway.map(i => ({
+            id: i.id,
+            name: i.name,
+            price: parseFloat(i.price),
+            category: i.category,
+            type: i.type,
+            image: i.image,
+            description: i.description || ""
+          }))
+        ]
+      });
+      console.log('[DB] Seeding of Menu items successful.');
+    }
+    res.json({ success: true, dineIn, takeaway });
+  } catch (err) {
+    console.error('Error fetching menu items from DB, falling back to local JSON files:', err.message);
+    const dineIn = readJsonFile(menuItemsFilePath, []);
+    const takeaway = readJsonFile(parcelItemsFilePath, []);
+    res.json({ success: true, dineIn, takeaway });
+  }
 });
 
 // POST Save Menu Items and Broadcast update
-app.post('/api/menu', (req, res) => {
+app.post('/api/menu', async (req, res) => {
   const { dineIn, takeaway } = req.body;
-  
+
   if (dineIn) {
     writeJsonFile(menuItemsFilePath, dineIn);
   }
@@ -796,7 +903,37 @@ app.post('/api/menu', (req, res) => {
     writeJsonFile(parcelItemsFilePath, takeaway);
   }
 
-  // Broadcast update to all connected socket clients
+  try {
+    await prisma.$transaction([
+      prisma.menuItem.deleteMany(),
+      prisma.menuItem.createMany({
+        data: [
+          ...(dineIn || []).map(i => ({
+            id: i.id,
+            name: i.name,
+            price: parseFloat(i.price),
+            category: i.category,
+            type: i.type,
+            image: i.image,
+            description: i.description || ""
+          })),
+          ...(takeaway || []).map(i => ({
+            id: i.id,
+            name: i.name,
+            price: parseFloat(i.price),
+            category: i.category,
+            type: i.type,
+            image: i.image,
+            description: i.description || ""
+          }))
+        ]
+      })
+    ]);
+    console.log('[DB] Menu items synchronized in database successfully.');
+  } catch (err) {
+    console.error('[DB Warning] Failed to sync menu with database:', err.message);
+  }
+
   io.emit('menu-updated', { dineIn, takeaway });
 
   res.json({ success: true, message: 'Menu synced successfully' });

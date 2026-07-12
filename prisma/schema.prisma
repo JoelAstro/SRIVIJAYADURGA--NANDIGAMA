@@ -95,3 +95,11 @@ model CmsVersion {
   author    String   // Admin email who saved it
   createdAt DateTime @default(now())
 }
+
+model UploadedFile {
+  filename  String   @id
+  type      String
+  base64    String
+  createdAt DateTime @default(now())
+}
+
