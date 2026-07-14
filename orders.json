@@ -230,5 +230,16 @@
     "timestamp": 1784054803790,
     "isParcel": false,
     "specialNotes": "Table Reservation Only (No Food Order)"
+  },
+  {
+    "id": "ORD-2ILA0H9CD",
+    "tableNo": "C1",
+    "customerName": "kj",
+    "customerPhone": "11111111111",
+    "status": "NO_FOOD_ORDER",
+    "items": [],
+    "timestamp": 1784055607604,
+    "isParcel": false,
+    "specialNotes": "Table Reservation Only (No Food Order)"
   }
 ]
