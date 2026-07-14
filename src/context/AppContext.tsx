@@ -27,7 +27,7 @@ export interface Order {
   tableNo: string;
   customerName: string;
   customerPhone: string;
-  status: 'PLACED' | 'PREPARING' | 'READY' | 'COMPLETED' | 'BILLING' | 'PENDING_VERIFY' | 'PAID' | 'NEW' | 'ACCEPTED' | 'PICKED_UP' | 'CANCELLED';
+  status: 'PLACED' | 'PREPARING' | 'READY' | 'COMPLETED' | 'BILLING' | 'PENDING_VERIFY' | 'PAID' | 'NEW' | 'ACCEPTED' | 'PICKED_UP' | 'CANCELLED' | 'NO_FOOD_ORDER';
   items: OrderItem[];
   timestamp: number;
   isParcel: boolean;
@@ -190,6 +190,7 @@ interface AppContextType {
   deleteReview: (id: string) => void;
   setTheme: (theme: 'dark' | 'light') => void;
   reserveTable: (tableNo: string, customerName: string, customerPhone: string, slot?: string) => boolean;
+  reserveTableOnly: (tableNo: string, customerName: string, customerPhone: string, slot?: string) => Promise<boolean>;
   releaseTable: (tableNo: string) => void;
   holdTable: (tableNo: string) => void;
   addToCart: (item: any) => void;
@@ -1236,6 +1237,61 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return success;
   };
 
+  const reserveTableOnly = async (tableNo: string, customerName: string, customerPhone: string, slot?: string) => {
+    const updated = tables.map(t => {
+      if (t.number === tableNo && t.status === 'AVAILABLE') {
+        return { 
+          ...t, 
+          status: 'OCCUPIED' as const, 
+          bookingTimeSlot: slot || null,
+          customerName,
+          customerPhone
+        };
+      }
+      return t;
+    });
+
+    const success = updated.some((t, idx) => t.status === 'OCCUPIED' && tables[idx].status === 'AVAILABLE');
+    if (success) {
+      localStorage.setItem('svd_tables', JSON.stringify(updated));
+      setTables(updated);
+
+      const newOrderId = 'ORD-' + Math.random().toString(36).substr(2, 9).toUpperCase();
+      const newOrder: Order = {
+        id: newOrderId,
+        tableNo,
+        customerName,
+        customerPhone,
+        status: 'NO_FOOD_ORDER',
+        items: [],
+        timestamp: Date.now(),
+        isParcel: false,
+        specialNotes: 'Table Reservation Only (No Food Order)'
+      };
+
+      try {
+        const response = await fetch(`${API_URL}/api/orders`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(newOrder)
+        });
+        const savedOrder = await response.json();
+        if (savedOrder && savedOrder.success) {
+          const orderToSave = savedOrder.order || newOrder;
+          setOrders(prev => {
+            if (prev.some(o => o.id === orderToSave.id)) return prev;
+            return [...prev, orderToSave];
+          });
+        }
+      } catch (err) {
+        console.error('Failed to create reservation order on server:', err);
+      }
+
+      triggerSync();
+    }
+    return success;
+  };
+
   const releaseTable = (tableNo: string) => {
     const updated = tables.map(t => {
       if (t.number === tableNo) {
@@ -1251,6 +1307,25 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     });
     localStorage.setItem('svd_tables', JSON.stringify(updated));
     setTables(updated);
+
+    // Auto-resolve any active order for this table to PAID
+    const activeOrd = orders.find(o => o.tableNo === tableNo && o.status !== 'PAID');
+    if (activeOrd) {
+      const nextOrders = orders.map(o => {
+        if (o.id === activeOrd.id) {
+          const nextOrder = { ...o, status: 'PAID' as const };
+          fetch(`${API_URL}/api/orders/${o.id}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(nextOrder)
+          });
+          return nextOrder;
+        }
+        return o;
+      });
+      setOrders(nextOrders);
+    }
+
     if (activeTable === tableNo) {
       setCart([]);
     }
@@ -1779,6 +1854,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       deleteReview,
       setTheme,
       reserveTable,
+      reserveTableOnly,
       releaseTable,
       holdTable,
       addToCart,

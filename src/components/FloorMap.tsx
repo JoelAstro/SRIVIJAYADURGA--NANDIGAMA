@@ -3,7 +3,7 @@ import { useApp } from '../context/AppContext';
 import { Search, Filter, User, Phone as PhoneIcon, Calendar } from 'lucide-react';
 
 const FloorMap: React.FC = () => {
-  const { tables, reserveTable, activeTable } = useApp();
+  const { tables, reserveTable, reserveTableOnly, activeTable } = useApp();
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<'ALL' | 'AVAILABLE' | 'OCCUPIED' | 'PENDING'>('ALL');
   
@@ -12,6 +12,7 @@ const FloorMap: React.FC = () => {
   const [customerName, setCustomerName] = useState('');
   const [customerPhone, setCustomerPhone] = useState('');
   const [slot, setSlot] = useState('12:00 PM - 02:00 PM');
+  const [isReservingOnly, setIsReservingOnly] = useState(false);
 
   const handleTableClick = (tableNum: string, currentStatus: string) => {
     if (currentStatus === 'AVAILABLE') {
@@ -41,6 +42,38 @@ const FloorMap: React.FC = () => {
       window.location.hash = `#menu?table=${tableNum}`;
     } else {
       alert('Table is no longer available.');
+    }
+  };
+
+  const handleReserveOnly = async () => {
+    if (!selectedTable || isReservingOnly) return;
+    if (!customerName || !customerPhone) {
+      alert('Please fill out all fields.');
+      return;
+    }
+    if (customerPhone.length < 10) {
+      alert('Please enter a valid 10-digit mobile number.');
+      return;
+    }
+
+    setIsReservingOnly(true);
+    try {
+      const success = await reserveTableOnly(selectedTable, customerName, customerPhone, slot);
+      if (success) {
+        const tableNum = selectedTable;
+        setSelectedTable(null);
+        setCustomerName('');
+        setCustomerPhone('');
+        alert(`Table T-${tableNum} has been successfully reserved!`);
+        window.location.hash = '#home';
+      } else {
+        alert('Table is no longer available.');
+      }
+    } catch (err) {
+      console.error('Failed to reserve table:', err);
+      alert('Failed to reserve table. Please try again.');
+    } finally {
+      setIsReservingOnly(false);
     }
   };
 
@@ -305,13 +338,21 @@ const FloorMap: React.FC = () => {
                   <button 
                     type="button"
                     onClick={() => setSelectedTable(null)}
-                    className="px-4 py-2.5 bg-neutral-100 hover:bg-neutral-200 dark:bg-neutral-800 dark:hover:bg-neutral-700 rounded-xl text-xs font-semibold"
+                    className="px-4 py-2.5 bg-neutral-100 hover:bg-neutral-200 dark:bg-neutral-800 dark:hover:bg-neutral-700 rounded-xl text-xs font-semibold border-none cursor-pointer"
                   >
                     Cancel
                   </button>
                   <button 
+                    type="button"
+                    disabled={isReservingOnly}
+                    onClick={handleReserveOnly}
+                    className="px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold shadow-md border-none cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {isReservingOnly ? 'Reserving...' : 'Confirm Table Only'}
+                  </button>
+                  <button 
                     type="submit"
-                    className="px-4 py-2.5 bg-maroon text-white dark:bg-saffron dark:text-maroon rounded-xl text-xs font-bold shadow-md"
+                    className="px-4 py-2.5 bg-maroon text-white dark:bg-saffron dark:text-maroon rounded-xl text-xs font-bold shadow-md border-none cursor-pointer"
                   >
                     Confirm &amp; Proceed to Menu
                   </button>

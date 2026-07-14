@@ -219,5 +219,16 @@
     "paymentMethod": "UPI",
     "deliveryAddress": "3-13, ARCH ROAD, church backside, NANDIGAMA, AP - 521185",
     "addressType": "Home"
+  },
+  {
+    "id": "ORD-U26XVSNJ6",
+    "tableNo": "B2",
+    "customerName": "Pardhu",
+    "customerPhone": "1234678900",
+    "status": "NO_FOOD_ORDER",
+    "items": [],
+    "timestamp": 1784054803790,
+    "isParcel": false,
+    "specialNotes": "Table Reservation Only (No Food Order)"
   }
 ]

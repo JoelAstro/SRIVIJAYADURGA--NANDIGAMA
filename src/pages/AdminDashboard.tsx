@@ -1652,9 +1652,11 @@ const AdminDashboard: React.FC = () => {
                                   <span className={`px-2 py-0.5 rounded text-[8px] font-black uppercase tracking-wider ${
                                     order.status === 'BILLING' || order.status === 'PENDING_VERIFY'
                                       ? 'bg-amber-100 text-amber-800 dark:bg-amber-950/40 dark:text-amber-400'
-                                      : 'bg-blue-100 text-blue-800 dark:bg-blue-950/40 dark:text-blue-400'
+                                      : order.status === 'NO_FOOD_ORDER'
+                                        ? 'bg-purple-100 text-purple-800 dark:bg-purple-950/40 dark:text-purple-400'
+                                        : 'bg-blue-100 text-blue-800 dark:bg-blue-950/40 dark:text-blue-400'
                                   }`}>
-                                    {order.status}
+                                    {order.status === 'NO_FOOD_ORDER' ? 'Table Reserved (No Food Order)' : order.status}
                                   </span>
                                 </div>
                                 
@@ -1663,7 +1665,7 @@ const AdminDashboard: React.FC = () => {
                                   <div>Guest Name: <span className="text-neutral-700 dark:text-neutral-250 font-bold">{order.customerName}</span></div>
                                   <div>Contact: <span className="text-neutral-700 dark:text-neutral-250">{order.customerPhone}</span></div>
                                   {order.deliveryAddress && (
-                                    <div className="pt-1 border-t border-neutral-100 dark:border-neutral-800 mt-1 space-y-0.5 text-[10px]">
+                                    <div className="pt-1 border-t border-neutral-100 dark:border-neutral-805 mt-1 space-y-0.5 text-[10px]">
                                       <div>Address Type: <span className="font-bold text-neutral-700 dark:text-neutral-250">{order.addressType || 'Home'}</span></div>
                                       <div>Address: <span className="text-neutral-700 dark:text-neutral-250">{order.deliveryAddress}</span></div>
                                       {order.latitude && order.longitude && (
@@ -1685,12 +1687,16 @@ const AdminDashboard: React.FC = () => {
                                 <div className="space-y-1">
                                   <span className="text-[8px] uppercase tracking-wider text-neutral-400 font-bold block">Ordered Dishes</span>
                                   <ul className="text-xs space-y-1 text-neutral-600 dark:text-neutral-300 font-medium">
-                                    {order.items.map((item, idx) => (
-                                      <li key={idx} className="flex justify-between">
-                                        <span>{item.name} &times; {item.quantity}</span>
-                                        <span>₹{item.price * item.quantity}</span>
-                                      </li>
-                                    ))}
+                                    {order.items.length === 0 ? (
+                                      <li className="italic text-neutral-400">None (Table Reservation Only)</li>
+                                    ) : (
+                                      order.items.map((item, idx) => (
+                                        <li key={idx} className="flex justify-between">
+                                          <span>{item.name} &times; {item.quantity}</span>
+                                          <span>₹{item.price * item.quantity}</span>
+                                        </li>
+                                      ))
+                                    )}
                                   </ul>
                                 </div>
                               </div>
@@ -1700,16 +1706,42 @@ const AdminDashboard: React.FC = () => {
                                   <span className="text-[10px] text-neutral-400 font-bold uppercase">Total Bill</span>
                                   <span className="font-logo font-extrabold text-base text-maroon dark:text-saffron">₹{orderTotal}</span>
                                 </div>
-                                <button
-                                  onClick={() => {
-                                    if (confirm(`Settle bill of ₹${orderTotal} for ${order.tableNo === 'Takeaway' ? 'Takeaway' : `Table ${order.tableNo}`}?`)) {
-                                      settleBillAndReleaseTable(order.id, 'CASH');
-                                    }
-                                  }}
-                                  className="w-full py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl shadow-md transition-all active:scale-95 text-center font-logo"
-                                >
-                                  Settle Bill &amp; Release Table
-                                </button>
+                                {order.status === 'NO_FOOD_ORDER' ? (
+                                  <div className="flex gap-2">
+                                    <button
+                                      onClick={() => {
+                                        if (confirm(`Cancel reservation for Table ${order.tableNo}?`)) {
+                                          updateOrderStatus(order.id, 'CANCELLED');
+                                          releaseTable(order.tableNo);
+                                        }
+                                      }}
+                                      className="flex-1 py-2 bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs rounded-xl shadow-md transition-all border-none cursor-pointer"
+                                    >
+                                      Cancel Booking
+                                    </button>
+                                    <button
+                                      onClick={() => {
+                                        if (confirm(`Complete reservation session for Table ${order.tableNo}?`)) {
+                                          settleBillAndReleaseTable(order.id, 'CASH');
+                                        }
+                                      }}
+                                      className="flex-1 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl shadow-md transition-all border-none cursor-pointer"
+                                    >
+                                      Complete &amp; Release
+                                    </button>
+                                  </div>
+                                ) : (
+                                  <button
+                                    onClick={() => {
+                                      if (confirm(`Settle bill of ₹${orderTotal} for ${order.tableNo === 'Takeaway' ? 'Takeaway' : `Table ${order.tableNo}`}?`)) {
+                                        settleBillAndReleaseTable(order.id, 'CASH');
+                                      }
+                                    }}
+                                    className="w-full py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl shadow-md transition-all active:scale-95 text-center font-logo"
+                                  >
+                                    Settle Bill &amp; Release Table
+                                  </button>
+                                )}
                               </div>
                             </div>
                           );
