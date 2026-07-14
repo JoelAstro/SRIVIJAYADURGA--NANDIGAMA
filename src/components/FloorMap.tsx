@@ -11,7 +11,7 @@ const FloorMap: React.FC = () => {
   const [selectedTable, setSelectedTable] = useState<string | null>(null);
   const [customerName, setCustomerName] = useState('');
   const [customerPhone, setCustomerPhone] = useState('');
-  const [slot, setSlot] = useState('12:00 PM - 02:00 PM');
+  const [slot, setSlot] = useState('12:00 PM - 01:00 PM');
   const [isReservingOnly, setIsReservingOnly] = useState(false);
 
   const handleTableClick = (tableNum: string, currentStatus: string) => {
@@ -324,12 +324,18 @@ const FloorMap: React.FC = () => {
                       onChange={(e) => setSlot(e.target.value)}
                       className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-neutral-300 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-800 text-sm focus:border-maroon dark:focus:border-saffron outline-none cursor-pointer font-medium"
                     >
-                      <option value="11:00 AM - 01:00 PM">11:00 AM - 01:00 PM</option>
-                      <option value="01:00 PM - 03:00 PM">01:00 PM - 03:00 PM</option>
-                      <option value="03:00 PM - 05:00 PM">03:00 PM - 05:00 PM</option>
-                      <option value="05:00 PM - 07:00 PM">05:00 PM - 07:00 PM</option>
-                      <option value="07:00 PM - 09:00 PM">07:00 PM - 09:00 PM</option>
-                      <option value="09:00 PM - 11:00 PM">09:00 PM - 11:00 PM</option>
+                      <option value="11:00 AM - 12:00 PM">11:00 AM - 12:00 PM</option>
+                      <option value="12:00 PM - 01:00 PM">12:00 PM - 01:00 PM</option>
+                      <option value="01:00 PM - 02:00 PM">01:00 PM - 02:00 PM</option>
+                      <option value="02:00 PM - 03:00 PM">02:00 PM - 03:00 PM</option>
+                      <option value="03:00 PM - 04:00 PM">03:00 PM - 04:00 PM</option>
+                      <option value="04:00 PM - 05:00 PM">04:00 PM - 05:00 PM</option>
+                      <option value="05:00 PM - 06:00 PM">05:00 PM - 06:00 PM</option>
+                      <option value="06:00 PM - 07:00 PM">06:00 PM - 07:00 PM</option>
+                      <option value="07:00 PM - 08:00 PM">07:00 PM - 08:00 PM</option>
+                      <option value="08:00 PM - 09:00 PM">08:00 PM - 09:00 PM</option>
+                      <option value="09:00 PM - 10:00 PM">09:00 PM - 10:00 PM</option>
+                      <option value="10:00 PM - 11:00 PM">10:00 PM - 11:00 PM</option>
                     </select>
                   </div>
                 </div>
