@@ -4200,19 +4200,19 @@ const AdminDashboard: React.FC = () => {
 
                 {/* Customer / Booking Details (if any) */}
                 {currentTable.customerName && (
-                  <div className="bg-neutral-50 dark:bg-neutral-850/30 border border-neutral-150 dark:border-neutral-800 p-3 rounded-2xl text-xs space-y-1.5 text-neutral-600 dark:text-neutral-300">
+                  <div className="bg-neutral-50 dark:bg-neutral-850/30 border border-neutral-150 dark:border-neutral-800 p-3 rounded-2xl text-xs space-y-1.5 text-neutral-900 dark:text-neutral-100">
                     <div className="flex justify-between">
-                      <span className="text-[10px] text-neutral-400 uppercase font-bold">Diner</span>
-                      <span className="font-bold text-neutral-700 dark:text-neutral-200">{currentTable.customerName}</span>
+                      <span className="text-[10px] text-neutral-600 dark:text-neutral-400 uppercase font-bold">Diner</span>
+                      <span className="font-bold text-neutral-900 dark:text-neutral-100">{currentTable.customerName}</span>
                     </div>
                     <div className="flex justify-between">
-                      <span className="text-[10px] text-neutral-405 uppercase font-bold">Phone</span>
-                      <span className="font-bold text-neutral-700 dark:text-neutral-200">{currentTable.customerPhone}</span>
+                      <span className="text-[10px] text-neutral-600 dark:text-neutral-400 uppercase font-bold">Phone</span>
+                      <span className="font-bold text-neutral-900 dark:text-neutral-100">{currentTable.customerPhone}</span>
                     </div>
                     {currentTable.bookingTimeSlot && (
                       <div className="flex justify-between">
-                        <span className="text-[10px] text-neutral-405 uppercase font-bold">Slot</span>
-                        <span className="font-bold text-neutral-700 dark:text-neutral-200">{currentTable.bookingTimeSlot}</span>
+                        <span className="text-[10px] text-neutral-600 dark:text-neutral-400 uppercase font-bold">Slot</span>
+                        <span className="font-bold text-neutral-900 dark:text-neutral-100">{currentTable.bookingTimeSlot}</span>
                       </div>
                     )}
                   </div>
