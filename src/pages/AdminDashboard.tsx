@@ -7,7 +7,8 @@ import {
   BarChart3, Users, DollarSign, ClipboardList, LogOut, Download, 
   Printer, QrCode, UtensilsCrossed, Star, Settings, Search, 
   Edit, Trash2, PlusCircle, X, 
-  ToggleLeft, ToggleRight, ShoppingBag, Globe, ChevronDown
+  ToggleLeft, ToggleRight, ShoppingBag, Globe, ChevronDown,
+  User, Phone, Clock
 } from 'lucide-react';
 
 interface Dish {
@@ -4200,19 +4201,28 @@ const AdminDashboard: React.FC = () => {
 
                 {/* Customer / Booking Details (if any) */}
                 {currentTable.customerName && (
-                  <div className="bg-neutral-50 dark:bg-neutral-850/30 border border-neutral-150 dark:border-neutral-800 p-3 rounded-2xl text-xs space-y-1.5 text-neutral-900 dark:text-neutral-100">
-                    <div className="flex justify-between">
-                      <span className="text-[10px] text-neutral-600 dark:text-neutral-400 uppercase font-bold">Diner</span>
-                      <span className="font-bold text-neutral-900 dark:text-neutral-100">{currentTable.customerName}</span>
+                  <div className="bg-neutral-50 dark:bg-neutral-850/30 border border-neutral-150 dark:border-neutral-800 p-4 rounded-2xl text-xs space-y-0.5">
+                    <div className="flex items-center justify-between py-2 border-b border-neutral-100 dark:border-neutral-800/60">
+                      <span className="flex items-center gap-1.5 text-[10px] text-neutral-500 dark:text-neutral-400 uppercase font-bold">
+                        <User className="w-3.5 h-3.5 text-neutral-400 dark:text-neutral-500" />
+                        Diner
+                      </span>
+                      <span className="font-extrabold text-neutral-900 dark:text-neutral-100 text-xs">{currentTable.customerName}</span>
                     </div>
-                    <div className="flex justify-between">
-                      <span className="text-[10px] text-neutral-600 dark:text-neutral-400 uppercase font-bold">Phone</span>
-                      <span className="font-bold text-neutral-900 dark:text-neutral-100">{currentTable.customerPhone}</span>
+                    <div className={`flex items-center justify-between py-2 ${currentTable.bookingTimeSlot ? 'border-b border-neutral-100 dark:border-neutral-800/60' : ''}`}>
+                      <span className="flex items-center gap-1.5 text-[10px] text-neutral-500 dark:text-neutral-400 uppercase font-bold">
+                        <Phone className="w-3.5 h-3.5 text-neutral-400 dark:text-neutral-500" />
+                        Phone
+                      </span>
+                      <span className="font-extrabold text-blue-600 dark:text-blue-400 text-xs">{currentTable.customerPhone}</span>
                     </div>
                     {currentTable.bookingTimeSlot && (
-                      <div className="flex justify-between">
-                        <span className="text-[10px] text-neutral-600 dark:text-neutral-400 uppercase font-bold">Slot</span>
-                        <span className="font-bold text-neutral-900 dark:text-neutral-100">{currentTable.bookingTimeSlot}</span>
+                      <div className="flex items-center justify-between py-2">
+                        <span className="flex items-center gap-1.5 text-[10px] text-neutral-500 dark:text-neutral-400 uppercase font-bold">
+                          <Clock className="w-3.5 h-3.5 text-neutral-400 dark:text-neutral-500" />
+                          Slot
+                        </span>
+                        <span className="font-extrabold text-amber-600 dark:text-saffron text-xs">{currentTable.bookingTimeSlot}</span>
                       </div>
                     )}
                   </div>
