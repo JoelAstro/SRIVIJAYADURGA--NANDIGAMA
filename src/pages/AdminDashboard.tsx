@@ -4201,15 +4201,15 @@ const AdminDashboard: React.FC = () => {
 
                 {/* Customer / Booking Details (if any) */}
                 {currentTable.customerName && (
-                  <div className="bg-neutral-50 dark:bg-neutral-850/30 border border-neutral-150 dark:border-neutral-800 p-4 rounded-2xl text-xs space-y-0.5">
-                    <div className="flex items-center justify-between py-2 border-b border-neutral-100 dark:border-neutral-800/60">
+                  <div className="bg-neutral-100 dark:bg-neutral-900/60 border border-neutral-200 dark:border-neutral-800 p-4 rounded-2xl text-xs space-y-0.5">
+                    <div className="flex items-center justify-between py-2 border-b border-neutral-200 dark:border-neutral-800/60">
                       <span className="flex items-center gap-1.5 text-[10px] text-neutral-500 dark:text-neutral-400 uppercase font-bold">
                         <User className="w-3.5 h-3.5 text-neutral-400 dark:text-neutral-500" />
                         Diner
                       </span>
-                      <span className="font-extrabold text-neutral-900 dark:text-neutral-100 text-xs">{currentTable.customerName}</span>
+                      <span className="font-extrabold text-black dark:text-white text-xs">{currentTable.customerName}</span>
                     </div>
-                    <div className={`flex items-center justify-between py-2 ${currentTable.bookingTimeSlot ? 'border-b border-neutral-100 dark:border-neutral-800/60' : ''}`}>
+                    <div className={`flex items-center justify-between py-2 ${currentTable.bookingTimeSlot ? 'border-b border-neutral-200 dark:border-neutral-800/60' : ''}`}>
                       <span className="flex items-center gap-1.5 text-[10px] text-neutral-500 dark:text-neutral-400 uppercase font-bold">
                         <Phone className="w-3.5 h-3.5 text-neutral-400 dark:text-neutral-500" />
                         Phone
