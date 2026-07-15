@@ -812,7 +812,7 @@ const AdminDashboard: React.FC = () => {
               <h3 className="font-logo font-extrabold text-sm uppercase tracking-wider text-neutral-500 dark:text-neutral-400">Real-Time Table Monitoring</h3>
               
               <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 xl:grid-cols-6 gap-3">
-                {tables.map(t => {
+                {[...tables].sort((a, b) => a.number.localeCompare(b.number)).map(t => {
                   let statusColor = 'bg-emerald-50 border-emerald-255 text-emerald-700 dark:bg-emerald-950/20 dark:border-emerald-900/50 dark:text-emerald-400';
                   if (t.status === 'OCCUPIED') {
                     statusColor = 'bg-rose-50 border-rose-255 text-rose-700 dark:bg-rose-950/20 dark:border-rose-900/50 dark:text-rose-400';
@@ -2361,7 +2361,7 @@ const AdminDashboard: React.FC = () => {
                   onChange={(e) => setSelectedQRTable(e.target.value)}
                   className="w-full px-3 py-2.5 rounded-xl border border-neutral-300 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-800 text-xs font-semibold cursor-pointer outline-none"
                 >
-                  {tables.map(t => (
+                  {[...tables].sort((a, b) => a.number.localeCompare(b.number)).map(t => (
                     <option key={t.id} value={t.number}>Table {t.number}</option>
                   ))}
                 </select>

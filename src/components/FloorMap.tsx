@@ -84,12 +84,16 @@ const FloorMap: React.FC = () => {
     return matchesSearch && matchesFilter;
   });
 
-  const groundTables = filteredTables.filter(t => t.floor === 'ground');
+  const groundTables = filteredTables
+    .filter(t => t.floor === 'ground')
+    .sort((a, b) => a.number.localeCompare(b.number));
   const firstTables = filteredTables.filter(t => t.floor === 'first');
 
   // Helper to get first floor tables by section letter
   const getSectionTables = (letter: string) => {
-    return firstTables.filter(t => t.number.startsWith(letter));
+    return firstTables
+      .filter(t => t.number.startsWith(letter))
+      .sort((a, b) => a.number.localeCompare(b.number));
   };
 
   const getTableClasses = (status: string, isCurTable: boolean) => {
@@ -203,6 +207,9 @@ const FloorMap: React.FC = () => {
                       className={`rounded-2xl border-2 p-5 flex flex-col items-center justify-center text-center gap-1.5 shadow-sm transition-all duration-300 select-none relative ${borderClass} ${bgClass}`}
                     >
                       <h4 className="font-logo font-extrabold text-xl mb-1">{t.number}</h4>
+                      <span className="text-[10px] font-semibold text-neutral-500 dark:text-neutral-400 flex items-center gap-1 select-none opacity-85">
+                        👥 {t.capacity} Seats
+                      </span>
                       <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold ${
                         t.status === 'AVAILABLE' ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-400' :
                         t.status === 'OCCUPIED' ? 'bg-rose-100 text-rose-800 dark:bg-rose-950/40 dark:text-rose-400' :
@@ -245,6 +252,9 @@ const FloorMap: React.FC = () => {
                               className={`rounded-2xl border-2 p-5 flex flex-col items-center justify-center text-center gap-1.5 shadow-sm transition-all duration-300 select-none relative ${borderClass} ${bgClass}`}
                             >
                               <h4 className="font-logo font-extrabold text-xl mb-1">{t.number}</h4>
+                              <span className="text-[10px] font-semibold text-neutral-500 dark:text-neutral-400 flex items-center gap-1 select-none opacity-85">
+                                👥 {t.capacity} Seats
+                              </span>
                               <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold ${
                                 t.status === 'AVAILABLE' ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-400' :
                                 t.status === 'OCCUPIED' ? 'bg-rose-100 text-rose-800 dark:bg-rose-950/40 dark:text-rose-400' :
