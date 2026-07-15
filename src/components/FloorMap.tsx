@@ -20,7 +20,7 @@ const FloorMap: React.FC = () => {
     }
   };
 
-  const handleReserveSubmit = (e: React.FormEvent) => {
+  const handleReserveSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedTable) return;
     if (!customerName || !customerPhone) {
@@ -32,7 +32,7 @@ const FloorMap: React.FC = () => {
       return;
     }
 
-    const success = reserveTable(selectedTable, customerName, customerPhone, slot);
+    const success = await reserveTable(selectedTable, customerName, customerPhone, slot);
     if (success) {
       const tableNum = selectedTable;
       setSelectedTable(null);

@@ -189,7 +189,7 @@ interface AppContextType {
   updateReview: (id: string, name: string, rating: number, message: string, status: 'PENDING' | 'APPROVED' | 'REJECTED', location?: string) => void;
   deleteReview: (id: string) => void;
   setTheme: (theme: 'dark' | 'light') => void;
-  reserveTable: (tableNo: string, customerName: string, customerPhone: string, slot?: string) => boolean;
+  reserveTable: (tableNo: string, customerName: string, customerPhone: string, slot?: string) => Promise<boolean>;
   reserveTableOnly: (tableNo: string, customerName: string, customerPhone: string, slot?: string) => Promise<boolean>;
   releaseTable: (tableNo: string) => void;
   holdTable: (tableNo: string) => void;
@@ -676,6 +676,32 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       })
       .catch(err => console.error('Failed to fetch orders:', err));
 
+    fetch(`${API_URL}/api/tables`)
+      .then(res => res.json())
+      .then(data => {
+        if (Array.isArray(data)) {
+          console.log('[Table Fetch Response] Loaded initial tables from backend');
+          setTables(data);
+          localStorage.setItem('svd_tables', JSON.stringify(data));
+        }
+      })
+      .catch(err => console.error('Failed to fetch tables:', err));
+
+    socketRef.current.on('table_updated', (updatedTable: Table) => {
+      console.log('[Realtime Events] Received table_updated:', updatedTable.number, updatedTable.status);
+      setTables(prev => {
+        const next = prev.map(t => t.number === updatedTable.number ? updatedTable : t);
+        localStorage.setItem('svd_tables', JSON.stringify(next));
+        return next;
+      });
+    });
+
+    socketRef.current.on('tables_synced', (syncedTables: Table[]) => {
+      console.log('[Realtime Events] Received tables_synced:', syncedTables.length);
+      setTables(syncedTables);
+      localStorage.setItem('svd_tables', JSON.stringify(syncedTables));
+    });
+
     socketRef.current.on('new-order', (newOrder: Order) => {
       console.log('[Realtime Events] Received new-order:', newOrder.id);
       setOrders(prev => {
@@ -812,217 +838,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     parseHash();
     window.addEventListener('hashchange', parseHash);
     return () => window.removeEventListener('hashchange', parseHash);
-  }, []);
-
-  // --- STARTUP STUCK TABLE RECOVERY ---
-  useEffect(() => {
-    const storedTables = localStorage.getItem('svd_tables');
-    const storedOrders = localStorage.getItem('svd_orders');
-    if (!storedTables) return;
-    
-    try {
-      const parsedTables: Table[] = JSON.parse(storedTables);
-      const parsedOrders: Order[] = storedOrders ? JSON.parse(storedOrders) : [];
-      let updated = false;
-      
-      const auditLogsStored = localStorage.getItem('svd_recovery_audit_logs');
-      const auditLogs: any[] = auditLogsStored ? JSON.parse(auditLogsStored) : [];
-      
-      const newTables = parsedTables.map(table => {
-        if (table.status === 'PENDING') {
-          const activeOrd = parsedOrders.find(o => o.tableNo === table.number && o.status !== 'PAID');
-          
-          let shouldRecover = false;
-          let reason = '';
-          
-          if (table.number === 'A3') {
-            shouldRecover = true;
-            reason = 'Force recovered stuck table A3 on startup';
-          } else if (!activeOrd) {
-            shouldRecover = true;
-            reason = 'Table stuck in PENDING status without active order';
-          } else if (Date.now() - activeOrd.timestamp > 10 * 60 * 1000) {
-            shouldRecover = true;
-            reason = `Billing Pending session exceeded 10 minutes limit (${Math.round((Date.now() - activeOrd.timestamp) / 60000)}m elapsed)`;
-          }
-          
-          if (shouldRecover) {
-            updated = true;
-            
-            // Calculate amount
-            const subtotal = activeOrd ? activeOrd.items.reduce((sum, i) => sum + i.price * i.quantity, 0) : 0;
-            const total = subtotal;
-
-            // Create audit log with required fields
-            const logEntry = {
-              id: 'REC-' + Math.random().toString(36).substr(2, 9).toUpperCase(),
-              tableNumber: table.number,
-              orderId: activeOrd?.id || 'NO_ORDER',
-              amount: total,
-              billingPendingStartTime: activeOrd?.timestamp || Date.now(),
-              autoReleaseTime: Date.now(),
-              releaseReason: reason
-            };
-            auditLogs.push(logEntry);
-            console.log(`[Stuck Table Recovery] Recovering table ${table.number}: ${reason}`);
-            
-            // Close active order if exists
-            if (activeOrd) {
-              parsedOrders.forEach(o => {
-                if (o.id === activeOrd.id) {
-                  o.status = 'PAID';
-                }
-              });
-            }
-            
-            // Reset table to AVAILABLE
-            return {
-              ...table,
-              status: 'AVAILABLE' as const,
-              bookingTimeSlot: null,
-              customerName: null,
-              customerPhone: null
-            };
-          }
-        }
-        return table;
-      });
-      
-      if (updated) {
-        localStorage.setItem('svd_tables', JSON.stringify(newTables));
-        fetch(`${API_URL}/api/orders/sync`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(parsedOrders) });
-        localStorage.setItem('svd_recovery_audit_logs', JSON.stringify(auditLogs));
-        setTables(newTables);
-        setOrders(parsedOrders);
-        triggerSync();
-      }
-    } catch (err) {
-      console.error('Failed to run stuck table recovery:', err);
-    }
-  }, []);
-
-  // --- LIVE BILLING PENDING TIMEOUT CHECKER ---
-  useEffect(() => {
-    const checkInterval = setInterval(() => {
-      const currentTables = tablesRef.current;
-      const currentOrders = ordersRef.current;
-      
-      let tablesUpdated = false;
-      let ordersUpdated = false;
-      const newTables = [...currentTables];
-      const newOrders = [...currentOrders];
-      const newNotifications: PaymentNotification[] = [];
-      const newAuditLogs: any[] = [];
-      
-      newTables.forEach((table, index) => {
-        if (table.status === 'PENDING') {
-          // Find the active order for this table in BILLING status
-          const activeOrd = newOrders.find(o => o.tableNo === table.number && o.status === 'BILLING');
-          if (activeOrd) {
-            const elapsedTime = Date.now() - activeOrd.timestamp;
-            if (elapsedTime > 10 * 60 * 1000) { // 10 minutes timeout
-              tablesUpdated = true;
-              ordersUpdated = true;
-              
-              // 1. Mark order as PAID (Close dining session)
-              newOrders.forEach(o => {
-                if (o.id === activeOrd.id) {
-                  o.status = 'PAID';
-                }
-              });
-              
-              // 2. Reset table to AVAILABLE
-              newTables[index] = {
-                ...table,
-                status: 'AVAILABLE',
-                bookingTimeSlot: null,
-                customerName: null,
-                customerPhone: null
-              };
-              
-              // 3. Calculate order amount
-              const subtotal = activeOrd.items.reduce((sum, i) => sum + i.price * i.quantity, 0);
-              const total = subtotal;
-              
-              // 4. Create Admin notification
-              const notificationId = 'NTF-' + Math.random().toString(36).substr(2, 9).toUpperCase();
-              newNotifications.push({
-                id: notificationId,
-                orderId: activeOrd.id,
-                tableNo: table.number,
-                customerName: 'System (Auto-Release)',
-                amount: total,
-                timestamp: Date.now()
-              });
-              
-              // 5. Create audit log entry
-              const logEntry = {
-                id: 'REC-' + Math.random().toString(36).substr(2, 9).toUpperCase(),
-                tableNumber: table.number,
-                orderId: activeOrd.id,
-                amount: total,
-                billingPendingStartTime: activeOrd.timestamp,
-                autoReleaseTime: Date.now(),
-                releaseReason: 'Billing Pending timeout (exceeded 10 minutes)'
-              };
-              newAuditLogs.push(logEntry);
-              
-              console.log(`[Billing Pending Timeout] Auto-releasing table ${table.number} after timeout.`);
-            }
-          } else {
-            // No active order found in BILLING status but table is PENDING.
-            // This is a stuck table situation. Let's release it immediately.
-            tablesUpdated = true;
-            newTables[index] = {
-              ...table,
-              status: 'AVAILABLE',
-              bookingTimeSlot: null,
-              customerName: null,
-              customerPhone: null
-            };
-            
-            const logEntry = {
-              id: 'REC-' + Math.random().toString(36).substr(2, 9).toUpperCase(),
-              tableNumber: table.number,
-              orderId: 'NO_ORDER',
-              amount: 0,
-              billingPendingStartTime: Date.now(),
-              autoReleaseTime: Date.now(),
-              releaseReason: 'Table stuck in PENDING status without active order (live check)'
-            };
-            newAuditLogs.push(logEntry);
-            console.log(`[Billing Pending Timeout] Auto-releasing table ${table.number} because it has no active order.`);
-          }
-        }
-      });
-      
-      if (tablesUpdated || ordersUpdated) {
-        if (tablesUpdated) {
-          setTables(newTables);
-          localStorage.setItem('svd_tables', JSON.stringify(newTables));
-        }
-        if (ordersUpdated) {
-          setOrders(newOrders);
-          fetch(`${API_URL}/api/orders/sync`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(newOrders) });
-        }
-        if (newNotifications.length > 0) {
-          setPaymentNotifications(prev => {
-            const updatedNotifs = [...newNotifications, ...prev];
-            localStorage.setItem('svd_payment_notifications', JSON.stringify(updatedNotifs));
-            return updatedNotifs;
-          });
-        }
-        if (newAuditLogs.length > 0) {
-          const storedLogs = localStorage.getItem('svd_recovery_audit_logs');
-          const auditLogs = storedLogs ? JSON.parse(storedLogs) : [];
-          const updatedLogs = [...auditLogs, ...newAuditLogs];
-          localStorage.setItem('svd_recovery_audit_logs', JSON.stringify(updatedLogs));
-        }
-        triggerSync();
-      }
-    }, 10000); // Check every 10 seconds
-    
-    return () => clearInterval(checkInterval);
   }, []);
 
   // --- LOAD CART WHEN ACTIVE TABLE CHANGES ---
@@ -1176,7 +991,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   useEffect(() => {
     const handleSync = (e: MessageEvent) => {
       if (e.data === 'sync') {
-        const storedTables = localStorage.getItem('svd_tables');
         const storedInvoices = localStorage.getItem('svd_invoices');
         const storedUpi = localStorage.getItem('svd_upi_id');
         const storedQr = localStorage.getItem('svd_qr_url');
@@ -1185,7 +999,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         const storedParcelItems = localStorage.getItem('svd_parcel_items');
         const storedNotifications = localStorage.getItem('svd_payment_notifications');
         
-        if (storedTables) setTables(JSON.parse(storedTables));
         if (storedInvoices) setInvoices(JSON.parse(storedInvoices));
         if (storedUpi) setUpiId(storedUpi);
         if (storedQr) setQrCodeUrl(storedQr);
@@ -1214,140 +1027,138 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   // --- TABLE ACTIONS ---
-  const reserveTable = (tableNo: string, customerName: string, customerPhone: string, slot?: string) => {
-    const updated = tables.map(t => {
-      if (t.number === tableNo && t.status === 'AVAILABLE') {
-        return { 
-          ...t, 
-          status: 'OCCUPIED' as const, 
-          bookingTimeSlot: slot || null,
-          customerName,
-          customerPhone
-        };
-      }
-      return t;
-    });
-
-    const success = updated.some((t, idx) => t.status === 'OCCUPIED' && tables[idx].status === 'AVAILABLE');
-    if (success) {
-      localStorage.setItem('svd_tables', JSON.stringify(updated));
-      setTables(updated);
-      triggerSync();
+  const reserveTable = async (tableNo: string, customerName: string, customerPhone: string, slot?: string) => {
+    const table = tables.find(t => t.number === tableNo);
+    if (!table || table.status !== 'AVAILABLE') return false;
+    
+    const nextTable = {
+      ...table,
+      status: 'OCCUPIED' as const,
+      bookingTimeSlot: slot || null,
+      customerName,
+      customerPhone
+    };
+    
+    try {
+      const res = await fetch(`${API_URL}/api/tables/${tableNo}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(nextTable)
+      });
+      const data = await res.json();
+      return data.success;
+    } catch (err) {
+      console.error('Failed to reserve table:', err);
+      return false;
     }
-    return success;
   };
 
   const reserveTableOnly = async (tableNo: string, customerName: string, customerPhone: string, slot?: string) => {
-    const updated = tables.map(t => {
-      if (t.number === tableNo && t.status === 'AVAILABLE') {
-        return { 
-          ...t, 
-          status: 'OCCUPIED' as const, 
-          bookingTimeSlot: slot || null,
-          customerName,
-          customerPhone
-        };
-      }
-      return t;
-    });
+    const table = tables.find(t => t.number === tableNo);
+    if (!table || table.status !== 'AVAILABLE') return false;
+    
+    const nextTable = {
+      ...table,
+      status: 'OCCUPIED' as const,
+      bookingTimeSlot: slot || null,
+      customerName,
+      customerPhone
+    };
+    
+    const newOrderId = 'ORD-' + Math.random().toString(36).substr(2, 9).toUpperCase();
+    const newOrder: Order = {
+      id: newOrderId,
+      tableNo,
+      customerName,
+      customerPhone,
+      status: 'NO_FOOD_ORDER',
+      items: [],
+      timestamp: Date.now(),
+      isParcel: false,
+      specialNotes: 'Table Reservation Only (No Food Order)'
+    };
 
-    const success = updated.some((t, idx) => t.status === 'OCCUPIED' && tables[idx].status === 'AVAILABLE');
-    if (success) {
-      localStorage.setItem('svd_tables', JSON.stringify(updated));
-      setTables(updated);
-
-      const newOrderId = 'ORD-' + Math.random().toString(36).substr(2, 9).toUpperCase();
-      const newOrder: Order = {
-        id: newOrderId,
-        tableNo,
-        customerName,
-        customerPhone,
-        status: 'NO_FOOD_ORDER',
-        items: [],
-        timestamp: Date.now(),
-        isParcel: false,
-        specialNotes: 'Table Reservation Only (No Food Order)'
-      };
-
-      try {
-        const response = await fetch(`${API_URL}/api/orders`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(newOrder)
-        });
-        const savedOrder = await response.json();
-        if (savedOrder && savedOrder.success) {
-          const orderToSave = savedOrder.order || newOrder;
-          setOrders(prev => {
-            if (prev.some(o => o.id === orderToSave.id)) return prev;
-            return [...prev, orderToSave];
-          });
-        }
-      } catch (err) {
-        console.error('Failed to create reservation order on server:', err);
-      }
-
-      triggerSync();
+    try {
+      await fetch(`${API_URL}/api/orders`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(newOrder)
+      });
+      
+      const res = await fetch(`${API_URL}/api/tables/${tableNo}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(nextTable)
+      });
+      const data = await res.json();
+      return data.success;
+    } catch (err) {
+      console.error('Failed to reserve table only:', err);
+      return false;
     }
-    return success;
   };
 
-  const releaseTable = (tableNo: string) => {
-    const updated = tables.map(t => {
-      if (t.number === tableNo) {
-        return { 
-          ...t, 
-          status: 'AVAILABLE' as const, 
-          bookingTimeSlot: null,
-          customerName: null,
-          customerPhone: null
-        };
-      }
-      return t;
-    });
-    localStorage.setItem('svd_tables', JSON.stringify(updated));
-    setTables(updated);
+  const releaseTable = async (tableNo: string) => {
+    const table = tables.find(t => t.number === tableNo);
+    if (!table) return;
+    
+    const nextTable = {
+      ...table,
+      status: 'AVAILABLE' as const,
+      bookingTimeSlot: null,
+      customerName: null,
+      customerPhone: null
+    };
 
-    // Auto-resolve any active order for this table to PAID
-    const activeOrd = orders.find(o => o.tableNo === tableNo && o.status !== 'PAID');
-    if (activeOrd) {
-      const nextOrders = orders.map(o => {
-        if (o.id === activeOrd.id) {
-          const nextOrder = { ...o, status: 'PAID' as const };
-          fetch(`${API_URL}/api/orders/${o.id}`, {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(nextOrder)
-          });
-          return nextOrder;
-        }
-        return o;
+    try {
+      await fetch(`${API_URL}/api/tables/${tableNo}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(nextTable)
       });
-      setOrders(nextOrders);
+      
+      const activeOrd = orders.find(o => o.tableNo === tableNo && o.status !== 'PAID');
+      if (activeOrd) {
+        const nextOrder = { ...activeOrd, status: 'PAID' as const };
+        await fetch(`${API_URL}/api/orders/${activeOrd.id}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(nextOrder)
+        });
+      }
+    } catch (err) {
+      console.error('Failed to release table:', err);
     }
 
     if (activeTable === tableNo) {
       setCart([]);
     }
     localStorage.removeItem(`svd_cart_T${tableNo}`);
-    triggerSync();
   };
 
-  const holdTable = (tableNo: string) => {
-    const updated = tables.map(t => {
-      if (t.number === tableNo) {
-        if (t.status === 'HELD') {
-          const nextStatus = t.customerName ? ('OCCUPIED' as const) : ('AVAILABLE' as const);
-          return { ...t, status: nextStatus };
-        } else {
-          return { ...t, status: 'HELD' as const };
-        }
-      }
-      return t;
-    });
-    localStorage.setItem('svd_tables', JSON.stringify(updated));
-    setTables(updated);
-    triggerSync();
+  const holdTable = async (tableNo: string) => {
+    const table = tables.find(t => t.number === tableNo);
+    if (!table) return;
+    
+    let nextStatus: Table['status'] = 'HELD';
+    if (table.status === 'HELD') {
+      nextStatus = table.customerName ? 'OCCUPIED' : 'AVAILABLE';
+    }
+    
+    const nextTable = {
+      ...table,
+      status: nextStatus
+    };
+
+    try {
+      await fetch(`${API_URL}/api/tables/${tableNo}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(nextTable)
+      });
+    } catch (err) {
+      console.error('Failed to hold table:', err);
+    }
   };
 
 
@@ -1513,7 +1324,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     if (cart.length === 0) return false;
 
     const activeOrd = orders.find(o => o.tableNo === activeTable && o.status !== 'PAID');
-    let finalTables = tables;
 
     if (activeOrd) {
       // Append or update items in existing active order
@@ -1559,13 +1369,17 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
       setOrders(prev => prev.map(o => o.id === activeOrd.id ? updatedOrder : o));
 
-      // Map table back to Occupied/Pending
-      finalTables = tables.map(t => {
-        if (t.number === activeTable) {
-          return { ...t, status: 'OCCUPIED' as const };
+      if (activeTable) {
+        const table = tables.find(t => t.number === activeTable);
+        if (table && table.status !== 'OCCUPIED') {
+          const nextTable = { ...table, status: 'OCCUPIED' as const };
+          fetch(`${API_URL}/api/tables/${activeTable}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(nextTable)
+          }).catch(err => console.error('Failed to update table status:', err));
         }
-        return t;
-      });
+      }
     } else {
       // Create new order
       const newOrderId = 'ORD-' + Math.random().toString(36).substr(2, 9).toUpperCase();
@@ -1594,18 +1408,18 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       });
 
       if (activeTable) {
-        finalTables = tables.map(t => {
-          if (t.number === activeTable) {
-            return { ...t, status: 'OCCUPIED' as const };
-          }
-          return t;
-        });
+        const table = tables.find(t => t.number === activeTable);
+        if (table && table.status !== 'OCCUPIED') {
+          const nextTable = { ...table, status: 'OCCUPIED' as const };
+          fetch(`${API_URL}/api/tables/${activeTable}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(nextTable)
+          }).catch(err => console.error('Failed to update table status:', err));
+        }
       }
     }
 
-    localStorage.setItem('svd_tables', JSON.stringify(finalTables));
-    setTables(finalTables);
-    triggerSync();
     return true;
   };
 
@@ -1687,25 +1501,34 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const updateOrderStatus = (orderId: string, status: Order['status']) => {
-    let nextTables = tables;
     const nextOrders = orders.map(o => {
       if (o.id === orderId) {
         const nextOrder = { ...o, status };
         
         // If order status advances to PREPARING, map table status to occupied
         if (status === 'PREPARING' && o.tableNo !== 'Takeaway') {
-          nextTables = tables.map(t => {
-            if (t.number === o.tableNo) return { ...t, status: 'OCCUPIED' as const };
-            return t;
-          });
+          const table = tables.find(t => t.number === o.tableNo);
+          if (table && table.status !== 'OCCUPIED') {
+            const nextTable = { ...table, status: 'OCCUPIED' as const };
+            fetch(`${API_URL}/api/tables/${o.tableNo}`, {
+              method: 'PUT',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(nextTable)
+            });
+          }
         }
         // If order status advances to BILLING (Ready for Billing), map table to PENDING (Orange)
         if (status === 'BILLING' && o.tableNo !== 'Takeaway') {
           nextOrder.timestamp = Date.now(); // Mark exact start time of Billing Pending
-          nextTables = tables.map(t => {
-            if (t.number === o.tableNo) return { ...t, status: 'PENDING' as const };
-            return t;
-          });
+          const table = tables.find(t => t.number === o.tableNo);
+          if (table && table.status !== 'PENDING') {
+            const nextTable = { ...table, status: 'PENDING' as const };
+            fetch(`${API_URL}/api/tables/${o.tableNo}`, {
+              method: 'PUT',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(nextTable)
+            });
+          }
         }
         
         fetch(`${API_URL}/api/orders/${orderId}`, {
@@ -1718,10 +1541,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       return o;
     });
 
-    localStorage.setItem('svd_tables', JSON.stringify(nextTables));
     setOrders(nextOrders);
-    setTables(nextTables);
-    triggerSync();
   };
 
   // --- BILL SETTLEMENT & RELEASE TABLE ---
@@ -1769,22 +1589,23 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setOrders(nextOrders);
 
     // Release table & set to AVAILABLE (Green)
-    let nextTables = tables;
     if (order.tableNo !== 'Takeaway') {
-      nextTables = tables.map(t => {
-        if (t.number === order.tableNo) {
-          return { 
-            ...t, 
-            status: 'AVAILABLE' as const,
-            bookingTimeSlot: null,
-            customerName: null,
-            customerPhone: null
-          };
-        }
-        return t;
-      });
-      setTables(nextTables);
-      localStorage.setItem('svd_tables', JSON.stringify(nextTables));
+      const table = tables.find(t => t.number === order.tableNo);
+      if (table) {
+        const nextTable = { 
+          ...table, 
+          status: 'AVAILABLE' as const,
+          bookingTimeSlot: null,
+          customerName: null,
+          customerPhone: null
+        };
+        fetch(`${API_URL}/api/tables/${order.tableNo}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(nextTable)
+        });
+      }
+      
       // Clear current tab's active cart if this was the table
       if (activeTable === order.tableNo) {
         setCart([]);

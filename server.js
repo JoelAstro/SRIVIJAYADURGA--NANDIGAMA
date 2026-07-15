@@ -10,6 +10,7 @@ const __dirname = path.dirname(__filename);
 const ordersFilePath = path.join(__dirname, 'orders.json');
 const cmsSettingsFilePath = path.join(__dirname, 'cms_settings.json');
 const cmsVersionsFilePath = path.join(__dirname, 'cms_versions.json');
+const tablesFilePath = path.join(__dirname, 'tables.json');
 
 import { Server } from 'socket.io';
 import cors from 'cors';
@@ -1172,6 +1173,236 @@ app.delete('/api/reviews/:id', async (req, res) => {
     res.status(500).json({ error: 'Internal server error' });
   }
 });
+
+// --- TABLE MANAGEMENT ENDPOINTS ---
+const DEFAULT_TABLES = [
+  { id: 'TG1', number: 'G1', floor: 'ground', capacity: 2, status: 'AVAILABLE', bookingTimeSlot: null, customerName: null, customerPhone: null },
+  { id: 'TG2', number: 'G2', floor: 'ground', capacity: 4, status: 'AVAILABLE', bookingTimeSlot: null, customerName: null, customerPhone: null },
+  { id: 'TG3', number: 'G3', floor: 'ground', capacity: 4, status: 'AVAILABLE', bookingTimeSlot: null, customerName: null, customerPhone: null },
+  { id: 'TG4', number: 'G4', floor: 'ground', capacity: 6, status: 'AVAILABLE', bookingTimeSlot: null, customerName: null, customerPhone: null },
+  { id: 'TG5', number: 'G5', floor: 'ground', capacity: 2, status: 'AVAILABLE', bookingTimeSlot: null, customerName: null, customerPhone: null },
+  { id: 'TA1', number: 'A1', floor: 'first', capacity: 4, status: 'AVAILABLE', bookingTimeSlot: null, customerName: null, customerPhone: null },
+  { id: 'TA2', number: 'A2', floor: 'first', capacity: 4, status: 'AVAILABLE', bookingTimeSlot: null, customerName: null, customerPhone: null },
+  { id: 'TA3', number: 'A3', floor: 'first', capacity: 4, status: 'AVAILABLE', bookingTimeSlot: null, customerName: null, customerPhone: null },
+  { id: 'TA4', number: 'A4', floor: 'first', capacity: 6, status: 'AVAILABLE', bookingTimeSlot: null, customerName: null, customerPhone: null },
+  { id: 'TA5', number: 'A5', floor: 'first', capacity: 6, status: 'AVAILABLE', bookingTimeSlot: null, customerName: null, customerPhone: null },
+  { id: 'TB1', number: 'B1', floor: 'first', capacity: 2, status: 'AVAILABLE', bookingTimeSlot: null, customerName: null, customerPhone: null },
+  { id: 'TB2', number: 'B2', floor: 'first', capacity: 4, status: 'AVAILABLE', bookingTimeSlot: null, customerName: null, customerPhone: null },
+  { id: 'TB3', number: 'B3', floor: 'first', capacity: 4, status: 'AVAILABLE', bookingTimeSlot: null, customerName: null, customerPhone: null },
+  { id: 'TB4', number: 'B4', floor: 'first', capacity: 6, status: 'AVAILABLE', bookingTimeSlot: null, customerName: null, customerPhone: null },
+  { id: 'TB5', number: 'B5', floor: 'first', capacity: 6, status: 'AVAILABLE', bookingTimeSlot: null, customerName: null, customerPhone: null },
+  { id: 'TC1', number: 'C1', floor: 'first', capacity: 4, status: 'AVAILABLE', bookingTimeSlot: null, customerName: null, customerPhone: null },
+  { id: 'TC2', number: 'C2', floor: 'first', capacity: 4, status: 'AVAILABLE', bookingTimeSlot: null, customerName: null, customerPhone: null },
+  { id: 'TC3', number: 'C3', floor: 'first', capacity: 4, status: 'AVAILABLE', bookingTimeSlot: null, customerName: null, customerPhone: null },
+  { id: 'TC4', number: 'C4', floor: 'first', capacity: 6, status: 'AVAILABLE', bookingTimeSlot: null, customerName: null, customerPhone: null },
+  { id: 'TC5', number: 'C5', floor: 'first', capacity: 6, status: 'AVAILABLE', bookingTimeSlot: null, customerName: null, customerPhone: null },
+  { id: 'TD1', number: 'D1', floor: 'first', capacity: 2, status: 'AVAILABLE', bookingTimeSlot: null, customerName: null, customerPhone: null },
+  { id: 'TD2', number: 'D2', floor: 'first', capacity: 4, status: 'AVAILABLE', bookingTimeSlot: null, customerName: null, customerPhone: null },
+  { id: 'TD3', number: 'D3', floor: 'first', capacity: 4, status: 'AVAILABLE', bookingTimeSlot: null, customerName: null, customerPhone: null },
+  { id: 'TD4', number: 'D4', floor: 'first', capacity: 6, status: 'AVAILABLE', bookingTimeSlot: null, customerName: null, customerPhone: null },
+  { id: 'TD5', number: 'D5', floor: 'first', capacity: 6, status: 'AVAILABLE', bookingTimeSlot: null, customerName: null, customerPhone: null }
+];
+
+app.get('/api/tables', async (req, res) => {
+  try {
+    let dbTables = [];
+    try {
+      dbTables = await prisma.table.findMany();
+      if (dbTables.length === 0) {
+        console.log('[Table Init] Seeding database with DEFAULT_TABLES...');
+        await prisma.table.createMany({
+          data: DEFAULT_TABLES.map(t => ({
+            id: t.id,
+            number: t.number,
+            floor: t.floor,
+            capacity: t.capacity,
+            status: t.status,
+            bookingTimeSlot: t.bookingTimeSlot,
+            customerName: t.customerName,
+            customerPhone: t.customerPhone
+          }))
+        });
+        dbTables = await prisma.table.findMany();
+      }
+    } catch (dbErr) {
+      console.warn('[DB Warning] Table query failed, falling back to JSON:', dbErr.message);
+      dbTables = readJsonFile(tablesFilePath, DEFAULT_TABLES);
+      if (!fs.existsSync(tablesFilePath)) {
+        writeJsonFile(tablesFilePath, DEFAULT_TABLES);
+      }
+    }
+    res.json(dbTables);
+  } catch (err) {
+    console.error('Failed to get tables:', err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+app.put('/api/tables/:number', async (req, res) => {
+  const { number } = req.params;
+  const { status, bookingTimeSlot, customerName, customerPhone } = req.body;
+  console.log(`[Table Update] Table ${number} -> status: ${status}, name: ${customerName}`);
+  try {
+    let updatedTable;
+    try {
+      updatedTable = await prisma.table.update({
+        where: { number },
+        data: {
+          status,
+          bookingTimeSlot: bookingTimeSlot || null,
+          customerName: customerName || null,
+          customerPhone: customerPhone || null
+        }
+      });
+    } catch (dbErr) {
+      console.warn(`[DB Warning] Failed to update table ${number} in DB, updating local JSON:`, dbErr.message);
+      const localTables = readJsonFile(tablesFilePath, DEFAULT_TABLES);
+      const idx = localTables.findIndex(t => t.number === number);
+      if (idx > -1) {
+        localTables[idx] = {
+          ...localTables[idx],
+          status,
+          bookingTimeSlot: bookingTimeSlot || null,
+          customerName: customerName || null,
+          customerPhone: customerPhone || null
+        };
+        writeJsonFile(tablesFilePath, localTables);
+        updatedTable = localTables[idx];
+      } else {
+        throw new Error(`Table ${number} not found in local JSON`);
+      }
+    }
+    
+    // Broadcast the updated table to all connected clients
+    io.emit('table_updated', updatedTable);
+    res.json({ success: true, table: updatedTable });
+  } catch (err) {
+    console.error(`Failed to update table ${number}:`, err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+app.post('/api/tables/sync', async (req, res) => {
+  const syncedTables = req.body;
+  if (!Array.isArray(syncedTables)) {
+    return res.status(400).json({ error: 'Invalid payload: expected array of tables' });
+  }
+  console.log(`[Table Sync] Syncing ${syncedTables.length} tables...`);
+  try {
+    try {
+      for (const t of syncedTables) {
+        await prisma.table.upsert({
+          where: { number: t.number },
+          update: {
+            status: t.status,
+            bookingTimeSlot: t.bookingTimeSlot || null,
+            customerName: t.customerName || null,
+            customerPhone: t.customerPhone || null
+          },
+          create: {
+            id: t.id,
+            number: t.number,
+            floor: t.floor,
+            capacity: t.capacity,
+            status: t.status,
+            bookingTimeSlot: t.bookingTimeSlot || null,
+            customerName: t.customerName || null,
+            customerPhone: t.customerPhone || null
+          }
+        });
+      }
+    } catch (dbErr) {
+      console.warn('[DB Warning] Bulk table sync failed, writing to local JSON:', dbErr.message);
+      writeJsonFile(tablesFilePath, syncedTables);
+    }
+    
+    io.emit('tables_synced', syncedTables);
+    res.json({ success: true });
+  } catch (err) {
+    console.error('Failed to sync tables:', err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Server-side Billing Pending auto-release checker (runs every 10 seconds)
+setInterval(async () => {
+  try {
+    let allOrders = [];
+    let allTables = [];
+    try {
+      allOrders = await prisma.order.findMany({ include: { items: true } });
+      allTables = await prisma.table.findMany();
+    } catch (dbErr) {
+      allOrders = readJsonFile(ordersFilePath, []);
+      allTables = readJsonFile(tablesFilePath, DEFAULT_TABLES);
+    }
+    
+    let updatedTables = [];
+    let updatedOrders = [];
+    
+    for (const table of allTables) {
+      if (table.status === 'PENDING') {
+        const activeOrd = allOrders.find(o => o.tableNo === table.number && o.status === 'BILLING');
+        if (activeOrd) {
+          const elapsedTime = Date.now() - activeOrd.timestamp;
+          if (elapsedTime > 10 * 60 * 1000) { // 10 minutes timeout
+            console.log(`[Timeout Recovery] Releasing table ${table.number} due to 10-minute billing timeout...`);
+            
+            // 1. Update order status to PAID
+            activeOrd.status = 'PAID';
+            try {
+              await prisma.order.update({
+                where: { id: activeOrd.id },
+                data: { status: 'PAID' }
+              });
+            } catch (dbErr) {
+              const idx = allOrders.findIndex(o => o.id === activeOrd.id);
+              if (idx > -1) {
+                allOrders[idx].status = 'PAID';
+                writeJsonFile(ordersFilePath, allOrders);
+              }
+            }
+            updatedOrders.push(activeOrd);
+            
+            // 2. Update table status to AVAILABLE
+            table.status = 'AVAILABLE';
+            table.bookingTimeSlot = null;
+            table.customerName = null;
+            table.customerPhone = null;
+            try {
+              await prisma.table.update({
+                where: { number: table.number },
+                data: {
+                  status: 'AVAILABLE',
+                  bookingTimeSlot: null,
+                  customerName: null,
+                  customerPhone: null
+                }
+              });
+            } catch (dbErr) {
+              const idx = allTables.findIndex(t => t.number === table.number);
+              if (idx > -1) {
+                allTables[idx] = { ...table };
+                writeJsonFile(tablesFilePath, allTables);
+              }
+            }
+            updatedTables.push(table);
+          }
+        }
+      }
+    }
+    
+    // Broadcast updates
+    for (const t of updatedTables) {
+      io.emit('table_updated', t);
+    }
+    for (const o of updatedOrders) {
+      io.emit('order_updated', o);
+    }
+  } catch (err) {
+    console.error('[Error] Server-side table timeout checker error:', err);
+  }
+}, 10000);
 
 // --- SERVE STATIC FRONTEND FOR UNIFIED RENDER DEPLOYMENT ---
 app.use(express.static(path.join(__dirname, 'dist')));
